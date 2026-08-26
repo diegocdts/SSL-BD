@@ -20,6 +20,8 @@ Uso:
 
 import numpy as np
 import torch
+import os
+from pathlib import Path
 
 from wavelet_estimation import estimate_zero_phase_wavelet
 from losses import relative_sparsity_mu
@@ -29,6 +31,7 @@ from vizualization import plot_images
 
 def train_ssl_bd(
     seismic_data: np.ndarray,
+    ground_truth: np.ndarray = None,
     n_epochs: int = 10000,
     learning_rate: float = 1e-5,
     base_channels: int = 16,
@@ -90,6 +93,8 @@ def train_ssl_bd(
 
     loss_history = []
 
+    lower_loss = None
+
     for epoch in range(n_epochs):
         r_epoch = epoch / max(n_epochs - 1, 1)
         mu = relative_sparsity_mu(r_epoch)  # Equação 7
@@ -107,6 +112,13 @@ def train_ssl_bd(
         if verbose_every and (epoch % verbose_every == 0 or epoch == n_epochs - 1):
             print(f"época {epoch:6d} | perda = {loss.item():.6e} | mu = {mu:.4f}")
 
+        if lower_loss is None or loss < lower_loss:
+            lower_loss = loss
+            y = y_obs.detach().cpu().numpy()
+            reflectivity = outputs["reflectivity"].detach().cpu().numpy()
+            plot_images(y=y, x_hat=reflectivity, x=ground_truth, cmap='seismic', results_dir=RESULTS_DIR, name='lower-loss', epoch=epoch)
+        
+
     # --------------------------------------------------------------
     # Passo 5: saída final (wavelet e refletividade) após convergência
     # --------------------------------------------------------------
@@ -123,9 +135,7 @@ def train_ssl_bd(
 
     torch.save(
         {
-            "model_state_dict": model.state_dict(),
-            "kernel_size": kernel_size,
-            "num_layers": num_layers,
+            "model_state_dict": model.state_dict()
         },
         model_path
     )
@@ -185,15 +195,16 @@ def load_data(data_path):
 
 
 if __name__ == "__main__":
+    torch.manual_seed(42)
     # ------------------------------------------------------------------
     # Configurações
     # ------------------------------------------------------------------
-    Y_PATH = "/home/data/IN.npy"
-    X_PATH = "/home/data/RFLT.npy"
-    EPOCHS = 3
+    Y_PATH = "/home/data/IMG.npy"
+    X_PATH = None #"/home/data/RFLT.npy"
+    EPOCHS = 10000
     LR = 1e-5
-    BASE_CHANNELS = 16
-    RESULTS_DIR = f'/home/src/results/SSLBD_{EPOCHS}_{LR}_{BASE_CHANNELS}'
+    BASE_CHANNELS = 8
+    RESULTS_DIR = f'/home/src/results/SSLBD_{Path(Y_PATH).stem}_{EPOCHS}_{LR}_{BASE_CHANNELS}'
     MODEL_PATH = f'{RESULTS_DIR}/model.pth'
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
@@ -208,8 +219,8 @@ if __name__ == "__main__":
 
     result = train_ssl_bd(y, n_epochs=EPOCHS, learning_rate=LR, base_channels=BASE_CHANNELS, verbose_every=10, model_path=MODEL_PATH)
 
-    reflectivity = result["reflectivity"].detach().cpu().numpy()
-    wavelet = result["wavelet"].detach().cpu().numpy()
+    reflectivity = result["reflectivity"]
+    wavelet = result["wavelet"]
     loss_history = result["loss_history"]
 
     np.save(f'{RESULTS_DIR}/reflectivity.npy', reflectivity)
