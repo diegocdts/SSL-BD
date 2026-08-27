@@ -55,7 +55,7 @@ def plot_images(y, x_hat, cmap, results_dir, name, x=None, epoch=None):
         # 2 imagens + 1 eixo exclusivo para a colorbar
         gs = fig.add_gridspec(
             1, 3,
-            width_ratios=[1, 1, 0.05],
+            width_ratios=[1, 1, 0.025],
             wspace=0.05
         )
 

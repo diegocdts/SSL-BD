@@ -116,7 +116,7 @@ class SSLBD(nn.Module):
         self.ground_truth = ground_truth
         self.is_supervised = is_supervised
 
-    def forward(self, y_obs: torch.Tensor, r_epoch: float, mu: float):
+    def forward(self, y_obs: torch.Tensor, mu: float):
         """
         Executa um passo completo do algoritmo SSL-BD (passos 1-4 da
         Seção 2.1).
@@ -125,9 +125,6 @@ class SSLBD(nn.Module):
         ----------
         y_obs : torch.Tensor, shape (batch, 1, n_traces, n_samples)
             Dado sísmico observado Y_obs.
-        r_epoch : float
-            Razão entre a época atual e o número total de épocas (usada
-            apenas para referência/logging externo).
         mu : float
             Parâmetro de esparsidade relativa desta época (Equação 7),
             calculado externamente com `losses.relative_sparsity_mu`.

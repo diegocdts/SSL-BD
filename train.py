@@ -47,6 +47,8 @@ def train_ssl_bd(
     ----------
     seismic_data : np.ndarray, shape (n_traces, n_samples)
         Dado sísmico observado (Y_obs).
+    ground_truth : np.ndarray, shape (n_traces, n_samples)
+        Dado sísmico verdadeiro (R_real).
     n_epochs : int
         Número máximo de épocas de treinamento (artigo: 10.000).
     learning_rate : float
@@ -86,8 +88,11 @@ def train_ssl_bd(
     y_obs = torch.tensor(seismic_data, dtype=torch.float32, device=device)
     y_obs = y_obs.unsqueeze(0).unsqueeze(0)
 
-    r_real = torch.tensor(ground_truth, dtype=torch.float32, device=device)
-    r_real = r_real.unsqueeze(0).unsqueeze(0)
+    if ground_truth is not None:
+        r_real = torch.tensor(ground_truth, dtype=torch.float32, device=device)
+        r_real = r_real.unsqueeze(0).unsqueeze(0)
+    else:
+        r_real = None
 
     # --------------------------------------------------------------
     # Modelo e otimizador (Adam, lr=1e-5, conforme Seção 3)
@@ -107,7 +112,7 @@ def train_ssl_bd(
         mu = relative_sparsity_mu(r_epoch)  # Equação 7
 
         optimizer.zero_grad()
-        outputs = model(y_obs, r_epoch=r_epoch, mu=mu)  # passos 2-4 da Seção 2.1
+        outputs = model(y_obs, mu=mu)  # passos 2-4 da Seção 2.1
         loss = outputs["loss"]
 
         # atualização dos parâmetros via retropropagação (passo 4)

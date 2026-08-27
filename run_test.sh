@@ -15,6 +15,8 @@
 
 nodeset -e $SLURM_JOB_NODELIST
 
+echo "Job ID: $SLURM_JOB_ID"
+
 cd $SLURM_SUBMIT_DIR
 
 DIR_SRC=${SLURM_SUBMIT_DIR}
@@ -25,5 +27,5 @@ srun singularity exec \
 -B ${DIR_SRC}:/home/src \
 -B ${DIR_DATA}:/home/data \
 --nv ${DIR_CONT}/pytorch-ngc-digitalrockframework-14082024.sif \
-python -u /home/src/workflow_test.py \
+python -u /home/src/test.py \
 --config_idx $SLURM_ARRAY_TASK_ID
