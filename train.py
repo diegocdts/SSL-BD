@@ -139,7 +139,7 @@ def train_ssl_bd(
 
     final_wavelet = final_outputs["wavelet"].detach().cpu().numpy()
     final_reflectivity = (
-        final_outputs["reflectivity_sparse"].detach().cpu().numpy().squeeze()
+        final_outputs["reflectivity"].detach().cpu().numpy().squeeze()
     )
 
     torch.save({"model_state_dict": best_model}, f'{results_dir}/best_model.pth')
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     X_PATH = "/home/data/RFLT.npy"
     EPOCHS = 10000
     LR = 1e-5
-    BASE_CHANNELS = 32
+    BASE_CHANNELS = 16
     RESULTS_DIR = f'/home/src/results/SSLBD_{Path(Y_PATH).stem}_{SUP}_{EPOCHS}_{LR}_{BASE_CHANNELS}'
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
