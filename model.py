@@ -97,7 +97,7 @@ class SSLBD(nn.Module):
     e implementando o passo de reconstrução + perda auto-supervisionada.
     """
 
-    def __init__(self, w0: torch.Tensor, base_channels: int = 16):
+    def __init__(self, w0: torch.Tensor, base_channels: int = 16, ground_truth: torch.Tensor = None, is_supervised: bool = False):
         """
         Parâmetros
         ----------
@@ -112,6 +112,9 @@ class SSLBD(nn.Module):
 
         self.reflectivity_net = ReflectivityInversionNet(base_channels=base_channels)
         self.wavelet_phase_net = WaveletPhaseInversionNet()
+
+        self.ground_truth = ground_truth
+        self.is_supervised = is_supervised
 
     def forward(self, y_obs: torch.Tensor, r_epoch: float, mu: float):
         """
@@ -158,6 +161,9 @@ class SSLBD(nn.Module):
 
         # 4. função de perda auto-supervisionada (Eq. 8)
         loss = ssl_bd_loss(y_obs, y_pred)
+
+        if self.is_supervised:
+            loss = ssl_bd_loss(self.ground_truth, r_pred)
 
         return {
             "loss": loss,
