@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 
 def zScore(data):
@@ -27,7 +28,7 @@ def vmin_vmax_percentile(target):
     
     return vmin, vmax
 
-def plot_images(y, x_hat, cmap, results_dir, name, x=None, epoch=None):
+def plot_images(y, x_hat, cmap, results_dir, name, x=None, epoch=None, snr2=None):
     fig = plt.figure(figsize=(15, 5))
 
     y = y[0, 0] if y.ndim == 4 else y
@@ -90,6 +91,9 @@ def plot_images(y, x_hat, cmap, results_dir, name, x=None, epoch=None):
         vmax=vmax
     )
 
+    if snr2 is not None:
+        ax2.text(0.99, 0.99, 'SNR2: {:.2f}'.format(snr2), horizontalalignment='right', verticalalignment='top', transform=ax2.transAxes, fontsize=12)
+
     ax2.set_title(f'Imagem recuperada (x_hat){epoch}')
     ax2.axis('off')
 
@@ -117,5 +121,113 @@ def plot_images(y, x_hat, cmap, results_dir, name, x=None, epoch=None):
         f'{results_dir}/input_output_{cmap}_{name}.png',
         bbox_inches='tight'
     )
+
+    plt.close()
+
+def plot_comparison(input, output, snr2, results_dir, name, target=None, coord=None):
+    """zoom_start_0 = coord[0]
+    zoom_start_1 = coord[1]
+    zoom_end_0 = coord[2]
+    zoom_end_1 = coord[3]
+    zoom_start = [zoom_start_0, zoom_start_1]
+
+    rectangle_params = {
+        "xy": zoom_start,
+        "width": zoom_end_0 - zoom_start_0,
+        "height": zoom_end_1 - zoom_start_1,
+        "linewidth": 2,
+        "edgecolor": 'r',
+        "facecolor": 'none'
+    }"""
+    n_columns = 3
+    column_control = 7
+    vmin, vmax = -1, 1
+
+    if target is not None:
+        n_columns = 4
+        column_control = 9
+        vmin, vmax = vmin_vmax_percentile(target)
+
+
+    title_input = 'Input'
+    title_target = 'Target'
+    title_output = 'Output'
+    title_diff = 'Difference'
+
+    def make_subplot(ax, img, title, snr2=None):
+        im = ax.imshow(img, cmap="seismic", vmin=vmin, vmax=vmax, aspect='auto')
+        """rect = patches.Rectangle(**rectangle_params)
+
+        ax.add_patch(rect)"""
+        ax.set_title(title, fontsize=16)
+        if title == title_input:
+            ax.set_ylabel('Time [ms]')
+        if snr2 is not None:
+            ax.text(0.99, 0.99, 'SNR2: {:.2f}'.format(snr2), horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, fontsize=16)
+        return im
+
+    """def make_zoom(ax, img, title=None):
+        slice = (img)[zoom_start_1:zoom_end_1, zoom_start_0:zoom_end_0]
+        ax.imshow(slice, cmap="seismic", vmin=vmin, vmax=vmax, aspect='auto')
+        ax.set_xlabel('Trace')
+        ax.set_yticks(np.arange(0, zoom_end_1-zoom_start_1, 10))
+        ax.set_yticklabels(np.arange(zoom_start_1,zoom_end_1, 10))
+        ax.set_xticks(np.arange(0,zoom_end_0-zoom_start_0, 10)) 
+        ax.set_xticklabels(np.arange(zoom_start_0,zoom_end_0, 10))
+        if title == title_input:
+            ax.set_ylabel('Time [ms]')"""
+
+    fig = plt.figure(figsize=(30, 16), facecolor='white')
+    fig.subplots_adjust(bottom=0.05, left=0.05, top = 0.975, right=0.975)
+    fig.tight_layout()
+
+    item_index = 1
+
+    ax = fig.add_subplot(4, n_columns, (item_index, column_control))
+    im = make_subplot(ax, input, title_input)
+    column_control+=1
+    item_index+=1
+
+    if target is not None:
+        ax = fig.add_subplot(4, n_columns, (item_index, column_control))
+        im = make_subplot(ax, target, title_target)
+        column_control+=1
+        item_index+=1
+
+    ax = fig.add_subplot(4, n_columns, (item_index, column_control))
+    make_subplot(ax, output, title_output, snr2)
+    column_control+=1
+    item_index+=1
+
+    if target is not None:
+        ax = fig.add_subplot(4, n_columns, (item_index, column_control))
+        make_subplot(ax, output - target, title_diff)
+        column_control+=1
+        item_index+=1   
+
+    """# Zoom
+    ax = fig.add_subplot(4, n_columns, column_control)
+    make_zoom(ax, input, title_input)
+    column_control+=1
+
+    if target is not None:    
+        ax = fig.add_subplot(4, n_columns, column_control)
+        make_zoom(ax, target)
+        column_control+=1
+
+    ax = fig.add_subplot(4, n_columns, column_control)
+    make_zoom(ax, output)
+    column_control+=1
+
+    if target is not None:
+        ax = fig.add_subplot(4, n_columns, column_control)
+        make_zoom(ax, output - target)
+        column_control+=1"""
+
+    cbar = fig.colorbar(im, ax=fig.axes, pad=0.01, aspect=80)
+    cbar.ax.tick_params(labelsize=14)
+
+    plt.savefig(f'{results_dir}/{name}.png', bbox_inches='tight', transparent=False)
+    plt.savefig(f'{results_dir}/{name}.pdf', bbox_inches='tight', transparent=False)
 
     plt.close()

@@ -140,7 +140,7 @@ def train_ssl_bd(
     with torch.no_grad():
         r_epoch_final = 1.0
         mu_final = relative_sparsity_mu(r_epoch_final)
-        final_outputs = model(y_obs, r_epoch=r_epoch_final, mu=mu_final)
+        final_outputs = model(y_obs, mu=mu_final)
 
     final_wavelet = final_outputs["wavelet"].detach().cpu().numpy()
     final_reflectivity = (
@@ -172,13 +172,13 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------
     # Configurações
     # ------------------------------------------------------------------
-    is_supervised = False
+    is_supervised = True
     SUP = 'SUP' if is_supervised else 'S-SUP'
     Y_PATH = "/home/data/IN.npy"
     X_PATH = "/home/data/RFLT.npy"
     EPOCHS = 10000
     LR = 1e-5
-    BASE_CHANNELS = 16
+    BASE_CHANNELS = 64
     RESULTS_DIR = f'/home/src/results/SSLBD_{Path(Y_PATH).stem}_{SUP}_{EPOCHS}_{LR}_{BASE_CHANNELS}'
     os.makedirs(RESULTS_DIR, exist_ok=True)
 

@@ -3,9 +3,10 @@ import numpy as np
 import torch
 from pathlib import Path
 from model import SSLBD
-from vizualization import plot_images, load_data
+from vizualization import plot_comparison, load_data
 from wavelet_estimation import estimate_zero_phase_wavelet
 from losses import relative_sparsity_mu
+from scores import export_metrics_csv
 
 
 def test_ssl_bd(
@@ -82,8 +83,8 @@ def test_ssl_bd(
 is_supervised = True
 SUP = 'SUP' if is_supervised else 'S-SUP'
 TRAIN_Y_PATH = "/home/data/IN.npy"
-TEST_Y_PATH = "/home/data/IMG.npy"
-X_PATH = None
+TEST_Y_PATH = "/home/data/IN.npy"
+X_PATH = None if 'IMG' in TEST_Y_PATH else "/home/data/RFLT.npy"
 EPOCHS = 10000
 LR = 1e-5
 BASE_CHANNELS = 16
@@ -104,10 +105,16 @@ else:
     x = None
 results = test_ssl_bd(y, x, base_channels=BASE_CHANNELS, results_dir=RESULTS_DIR)
 
-final_reflectivity = (results["reflectivity"].detach().cpu().numpy().squeeze())
-np.save(f'{TEST_DIR}/final_reflectivity.npy', final_reflectivity)
+reflectivity = (results["reflectivity"].detach().cpu().numpy().squeeze())
+reflectivity_sparse = (results["reflectivity_sparse"].detach().cpu().numpy().squeeze())
+np.save(f'{TEST_DIR}/reflectivity.npy', reflectivity)
+np.save(f'{TEST_DIR}/reflectivity_sparse.npy', reflectivity_sparse)
 
-plot_images(y=y, x_hat=final_reflectivity, x=x, cmap='seismic', results_dir=TEST_DIR, name='final')
+reflectivity_snr2, reflectivity_sparse_snr2 = export_metrics_csv(f'{TEST_DIR}/metrics.csv', y, x, reflectivity, reflectivity_sparse)
+
+#input, output, snr2, results_dir, name, target=None
+plot_comparison(input=y, output=reflectivity, snr2=reflectivity_snr2, results_dir=TEST_DIR, name='reflectivity', target=x)
+plot_comparison(input=y, output=reflectivity_sparse, snr2=reflectivity_snr2, results_dir=TEST_DIR, name='reflectivity_sparse', target=x)
 
 print('Fim do processamento')
 
