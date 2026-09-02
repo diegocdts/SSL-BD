@@ -22,39 +22,29 @@ def MSE(input, output, target):
     mse = mean_squared_error(target, output)
     return mse
 
-def export_metrics_csv(filename, y, x, reflectivity, reflectivity_sparse):
+def export_metrics_csv(input, output, results_dir, target=None):
 
-    if x is None:
-        return None, None
+    if target is None:
+        return None
 
-    reflectivity_snr2 = SNR2(y, reflectivity, x)
-    reflectivity_psnr = PSNR(y, reflectivity, x)
-    reflectivity_mse = MSE(y, reflectivity, x)
-
-    reflectivity_sparse_snr2 = SNR2(y, reflectivity_sparse, x)
-    reflectivity_sparse_psnr = PSNR(y, reflectivity_sparse, x)
-    reflectivity_sparse_mse = MSE(y, reflectivity_sparse, x)
+    snr2 = SNR2(input, output, target)
+    psnr = PSNR(input, output, target)
+    mse = MSE(input, output, target)
 
     metrics = np.array([
-        reflectivity_snr2,
-        reflectivity_psnr,
-        reflectivity_mse,
-        reflectivity_sparse_snr2,
-        reflectivity_sparse_psnr,
-        reflectivity_sparse_mse
+        snr2,
+        psnr,
+        mse
     ])
 
     headers = [
-        "reflectivity_snr2",
-        "reflectivity_psnr",
-        "reflectivity_mse",
-        "reflectivity_sparse_snr2",
-        "reflectivity_sparse_psnr",
-        "reflectivity_sparse_mse"
+        "snr2",
+        "psnr",
+        "mse"
     ]
 
     np.savetxt(
-        filename,
+        f'{results_dir}/metrics.csv',
         metrics.reshape(1, -1),
         delimiter=",",
         fmt="%.2f",
@@ -62,4 +52,4 @@ def export_metrics_csv(filename, y, x, reflectivity, reflectivity_sparse):
         comments=""
     )
 
-    return reflectivity_snr2, reflectivity_sparse_snr2
+    return snr2

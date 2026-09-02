@@ -26,7 +26,8 @@ from pathlib import Path
 from wavelet_estimation import estimate_zero_phase_wavelet
 from losses import relative_sparsity_mu
 from model import SSLBD
-from vizualization import plot_images, load_data
+from vizualization import plot_comparison, load_data
+from scores import export_metrics_csv
 
 
 def train_ssl_bd(
@@ -49,6 +50,9 @@ def train_ssl_bd(
         Dado sísmico observado (Y_obs).
     ground_truth : np.ndarray, shape (n_traces, n_samples)
         Dado sísmico verdadeiro (R_real).
+    is_supervised:
+        True se o modelo deve ser treinado de forma supervisionada. Falso caso contrário.
+        Se ground_truth for None, is_supervised = False
     n_epochs : int
         Número máximo de épocas de treinamento (artigo: 10.000).
     learning_rate : float
@@ -67,8 +71,7 @@ def train_ssl_bd(
     dict com:
         'model'        : o modelo SSLBD treinado
         'wavelet'      : wavelet final estimado (np.ndarray)
-        'reflectivity' : refletividade final prevista (np.ndarray),
-                          já com o processo de esparsidade relativa
+        'reflectivity' : refletividade final prevista (np.ndarray)
         'loss_history' : lista com o valor da perda a cada época
     """
 
@@ -84,28 +87,27 @@ def train_ssl_bd(
     w0_np = estimate_zero_phase_wavelet(seismic_data)
     w0 = torch.tensor(w0_np, dtype=torch.float32, device=device)
 
-    # dado sísmico como tensor (batch=1, canal=1, n_traces, n_samples)
+    # dado sísmico obsevado como tensor (batch=1, canal=1, n_traces, n_samples)
     y_obs = torch.tensor(seismic_data, dtype=torch.float32, device=device)
     y_obs = y_obs.unsqueeze(0).unsqueeze(0)
 
+    # ground truth como tensor (batch=1, canal=1, n_traces, n_samples)
     if ground_truth is not None:
         r_real = torch.tensor(ground_truth, dtype=torch.float32, device=device)
         r_real = r_real.unsqueeze(0).unsqueeze(0)
     else:
+        is_supervised = False
         r_real = None
 
     # --------------------------------------------------------------
-    # Modelo e otimizador (Adam, lr=1e-5, conforme Seção 3)
+    # Passo 2: treinamento do modelo com otimizador Adam e lr=1e-5, (conforme Seção 3)
     # --------------------------------------------------------------
     model = SSLBD(w0=w0, base_channels=base_channels, ground_truth=r_real, is_supervised=is_supervised).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     loss_history = []
 
-    lower_loss = None
-    best_model = None
-    best_reflectivity = None
-    best_wavelet = None
+    lower_loss, best_model_state_dict, best_reflectivity, best_wavelet, best_theta = None, None, None, None, None
 
     for epoch in range(n_epochs):
         r_epoch = epoch / max(n_epochs - 1, 1)
@@ -126,44 +128,27 @@ def train_ssl_bd(
 
         if lower_loss is None or loss < lower_loss:
             lower_loss = loss
-            best_model = model.state_dict()
-            y = y_obs.detach().cpu().numpy()
-            best_reflectivity = outputs["reflectivity"].detach().cpu().numpy()
+            best_model_state_dict = model.state_dict()
+            best_reflectivity = outputs["reflectivity"].detach().cpu().numpy().squeeze()
             best_wavelet = outputs["wavelet"].detach().cpu().numpy()
-            plot_images(y=y, x_hat=best_reflectivity, x=ground_truth, cmap='seismic', results_dir=RESULTS_DIR, name='lower-loss', epoch=epoch)
-        
+            best_theta = outputs["theta_pred"].detach().cpu().numpy()
+            y = y_obs.detach().cpu().numpy().squeeze()
+            snr2 = export_metrics_csv(input=y, output=best_reflectivity, results_dir=results_dir, target=ground_truth)
+            plot_comparison(input=y, output=best_reflectivity, results_dir=results_dir, name='best_reflectivity', snr2=snr2, target=ground_truth)        
 
     # --------------------------------------------------------------
-    # Passo 5: saída final (wavelet e refletividade) após convergência
+    # Passo 3: salva melhor modelo e wavelet e refletividade correspondentes
     # --------------------------------------------------------------
-    model.eval()
-    with torch.no_grad():
-        r_epoch_final = 1.0
-        mu_final = relative_sparsity_mu(r_epoch_final)
-        final_outputs = model(y_obs, mu=mu_final)
+    torch.save({"model_state_dict": best_model_state_dict}, f'{results_dir}/model.pth')
 
-    final_wavelet = final_outputs["wavelet"].detach().cpu().numpy()
-    final_reflectivity = (
-        final_outputs["reflectivity"].detach().cpu().numpy().squeeze()
-    )
-
-    torch.save({"model_state_dict": best_model}, f'{results_dir}/best_model.pth')
-    torch.save({"model_state_dict": model.state_dict}, f'{results_dir}/final_model.pth')
-
-    np.save(f'{results_dir}/best_reflectivity.npy', best_reflectivity)
     np.save(f'{results_dir}/best_wavelet.npy', best_wavelet)
-    np.save(f'{results_dir}/final_reflectivity.npy', final_reflectivity)
-    np.save(f'{results_dir}/final_wavelet.npy', final_wavelet)
+    np.save(f'{results_dir}/best_theta.npy', best_theta)
+    np.save(f'{results_dir}/best_reflectivity.npy', best_reflectivity)
     np.save(f'{results_dir}/loss_history.npy', loss_history)
 
-    y = y_obs.detach().cpu().numpy()
-    x = r_real.detach().cpu().numpy()
-    plot_images(y=y, x_hat=final_reflectivity, x=x, cmap='seismic', results_dir=results_dir, name='final')
-
     return {
-        "model": model,
-        "wavelet": final_wavelet,
-        "reflectivity": final_reflectivity,
+        "wavelet": best_wavelet,
+        "reflectivity": best_reflectivity,
         "loss_history": loss_history,
     }
 
@@ -172,14 +157,14 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------
     # Configurações
     # ------------------------------------------------------------------
-    is_supervised = True
-    SUP = 'SUP' if is_supervised else 'S-SUP'
+    is_supervised = False
+    SUP = 'SUP' if is_supervised else 'SELF-SUP'
     Y_PATH = "/home/data/IN.npy"
     X_PATH = "/home/data/RFLT.npy"
     EPOCHS = 10000
     LR = 1e-5
     BASE_CHANNELS = 64
-    RESULTS_DIR = f'/home/src/results/SSLBD_{Path(Y_PATH).stem}_{SUP}_{EPOCHS}_{LR}_{BASE_CHANNELS}'
+    RESULTS_DIR = f'/home/src/results/SSLBD_DATA_{Path(Y_PATH).stem}_{SUP}_EP_{EPOCHS}_LR_{LR}_BC_{BASE_CHANNELS}'
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     print(f'{SUP}  - Epochs: {EPOCHS} - LR: {LR} - Base Channels: {BASE_CHANNELS}')
@@ -191,7 +176,6 @@ if __name__ == "__main__":
         x = load_data(data_path=X_PATH)
         print(f'Imagem limpa: {X_PATH}    -  Shape: {x.shape} - min: {x.min()}  - max: {x.max()}')
     else:
-        is_supervised = False
         x = None
 
     train_ssl_bd(y, x, is_supervised, n_epochs=EPOCHS, learning_rate=LR, base_channels=BASE_CHANNELS, verbose_every=10, results_dir=RESULTS_DIR)
