@@ -26,7 +26,7 @@ from pathlib import Path
 from wavelet_estimation import estimate_zero_phase_wavelet
 from losses import relative_sparsity_mu
 from model import SSLBD
-from vizualization import plot_comparison, load_data
+from visualization import plot_comparison, load_data
 from scores import export_metrics_csv
 
 
