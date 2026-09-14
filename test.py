@@ -14,7 +14,8 @@ def test_ssl_bd(
     ground_truth: np.ndarray = None,
     base_channels: int = 16,
     device: str = None,
-    results_dir: str = None
+    results_dir: str = None,
+    test_dir: str = None
 ):
     """
     Executa o teste completo do SSL-BD sobre um dado sísmico 2D.
@@ -30,7 +31,9 @@ def test_ssl_bd(
     device : str, opcional
         'cuda' ou 'cpu'. Se None, usa GPU se disponível.
     results_dir: str
-        Caminho para salvar resultados
+        Caminho do modelo salvo
+    test_dir: str
+            Caminho para salvar teste
     """
 
     assert results_dir is not None, "O path para os resultados precisa ser definido"
@@ -61,7 +64,7 @@ def test_ssl_bd(
     # --------------------------------------------------------------
 
     checkpoint = torch.load(
-        f'{results_dir}/best_model.pth',
+        f'{results_dir}/model.pth',
         map_location=device
     )
 
@@ -75,20 +78,32 @@ def test_ssl_bd(
 
     mu = relative_sparsity_mu(1)
     with torch.no_grad():
-        results = model(y_obs, mu=mu)
+        outputs = model(y_obs, mu=mu)
 
-    return results
+    reflectivity = outputs["reflectivity"].detach().cpu().numpy()
+
+    print(reflectivity.shape)
+    reflectivity = reflectivity.squeeze()
+    print(reflectivity.shape)
+
+    np.save(f'{test_dir}/reflectivity.npy', reflectivity)
+
+    snr2 = export_metrics_csv(input=y, output=reflectivity, results_dir=test_dir, target=x)
+
+    plot_comparison(input=y, output=reflectivity, results_dir=test_dir, name='reflectivity', snr2=snr2, target=x) 
+
+    return reflectivity
 
 
 is_supervised = True
-SUP = 'SUP' if is_supervised else 'S-SUP'
+SUP = 'SUP' if is_supervised else 'SELF-SUP'
 TRAIN_Y_PATH = "/home/data/IN.npy"
-TEST_Y_PATH = "/home/data/IN.npy"
-X_PATH = None if 'IMG' in TEST_Y_PATH else "/home/data/RFLT.npy"
+TEST_Y_PATH = "/home/data/IMG.npy"
+X_PATH = "/home/data/RFLT.npy" if 'IN.npy' in TEST_Y_PATH else None
 EPOCHS = 10000
 LR = 1e-5
-BASE_CHANNELS = 16
-RESULTS_DIR = f'/home/src/results/SSLBD_{Path(TRAIN_Y_PATH).stem}_{SUP}_{EPOCHS}_{LR}_{BASE_CHANNELS}'
+BASE_CHANNELS = 128
+RESULTS_DIR = f'/home/src/results/SSLBD_DATA_{Path(TRAIN_Y_PATH).stem}_{SUP}_EP_{EPOCHS}_LR_{LR}_BC_{BASE_CHANNELS}'
 TEST_DIR = f'{RESULTS_DIR}/test_{Path(TEST_Y_PATH).stem}'
 os.makedirs(TEST_DIR, exist_ok=True)
 
@@ -103,18 +118,8 @@ if X_PATH is not None:
 else:
     is_supervised = False
     x = None
-results = test_ssl_bd(y, x, base_channels=BASE_CHANNELS, results_dir=RESULTS_DIR)
 
-reflectivity = (results["reflectivity"].detach().cpu().numpy().squeeze())
-reflectivity_sparse = (results["reflectivity_sparse"].detach().cpu().numpy().squeeze())
-np.save(f'{TEST_DIR}/reflectivity.npy', reflectivity)
-np.save(f'{TEST_DIR}/reflectivity_sparse.npy', reflectivity_sparse)
-
-reflectivity_snr2, reflectivity_sparse_snr2 = export_metrics_csv(f'{TEST_DIR}/metrics.csv', y, x, reflectivity, reflectivity_sparse)
-
-#input, output, snr2, results_dir, name, target=None
-plot_comparison(input=y, output=reflectivity, snr2=reflectivity_snr2, results_dir=TEST_DIR, name='reflectivity', target=x)
-plot_comparison(input=y, output=reflectivity_sparse, snr2=reflectivity_snr2, results_dir=TEST_DIR, name='reflectivity_sparse', target=x)
+test_ssl_bd(y, x, base_channels=BASE_CHANNELS, results_dir=RESULTS_DIR, test_dir=TEST_DIR)    
 
 print('Fim do processamento')
 

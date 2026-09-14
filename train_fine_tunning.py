@@ -1,10 +1,11 @@
 """
-train.py
+train_fine_tunning.py
 =========
 
 Script de treinamento do método SSL-BD, seguindo os passos descritos na
 Seção 2.1 (Figura 1) e as configurações experimentais da Seção 3 do
-artigo:
+artigo, mas carregando um modelo previamente treinado e fazendo fine tunning 
+dos pesos usando a best wavelet de um modelo supervisionado:
 
     - otimizador Adam, taxa de aprendizado constante de 1e-5;
     - até 10.000 épocas de treinamento;
@@ -30,8 +31,9 @@ from visualization import plot_comparison, load_data
 from scores import export_metrics_csv
 
 
-def train_ssl_bd(
+def fine_tunning_ssl_bd(
     seismic_data: np.ndarray,
+    wavelet: np.ndarray,
     ground_truth: np.ndarray = None,
     is_supervised: bool = False,
     n_epochs: int = 10000,
@@ -48,6 +50,8 @@ def train_ssl_bd(
     ----------
     seismic_data : np.ndarray, shape (n_traces, n_samples)
         Dado sísmico observado (Y_obs).
+    wavelet : np.ndarray (n_samples, )
+        Wavelet carregada do modelo supervisionado
     ground_truth : np.ndarray, shape (n_traces, n_samples)
         Dado sísmico verdadeiro (R_real).
     is_supervised:
@@ -84,7 +88,7 @@ def train_ssl_bd(
     # Passo 1 (Seção 2.2): estimativa do wavelet inicial de fase zero,
     # calculada uma única vez, fora do laço de treinamento.
     # --------------------------------------------------------------
-    w0_np = estimate_zero_phase_wavelet(seismic_data)
+    w0_np = wavelet
     w0 = torch.tensor(w0_np, dtype=torch.float32, device=device)
 
     # dado sísmico obsevado como tensor (batch=1, canal=1, n_traces, n_samples)
@@ -102,7 +106,17 @@ def train_ssl_bd(
     # --------------------------------------------------------------
     # Passo 2: treinamento do modelo com otimizador Adam e lr=1e-5, (conforme Seção 3)
     # --------------------------------------------------------------
+    checkpoint = torch.load(
+        f'{results_dir}/model.pth',
+        map_location=device
+    )
+
+    results_dir = f'{results_dir}/fine_tunning'
+    os.makedirs(results_dir, exist_ok=True)
+
     model = SSLBD(w0=w0, base_channels=base_channels, ground_truth=r_real, is_supervised=is_supervised).to(device)
+    model.load_state_dict(checkpoint["model_state_dict"])
+
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     loss_history = []
@@ -155,19 +169,21 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------
     # Configurações
     # ------------------------------------------------------------------
-    is_supervised = True
+    is_supervised = False
     SUP = 'SUP' if is_supervised else 'SELF-SUP'
     Y_PATH = "/home/data/IN.npy"
-    #Y_PATH = "/home/data/IMG.npy"
-    #Y_PATH = "/home/src/results/SSLBD_DATA_IN_SUP_EP_10000_LR_1e-05_BC_64/test_IMG/reflectivity.npy"
-    X_PATH = "/home/data/RFLT.npy" if 'IN.npy' in Y_PATH else None
+    X_PATH = "/home/data/RFLT.npy"
     EPOCHS = 10000
     LR = 1e-5
-    BASE_CHANNELS = 128
+    BASE_CHANNELS = 64
     RESULTS_DIR = f'/home/src/results/SSLBD_DATA_{Path(Y_PATH).stem}_{SUP}_EP_{EPOCHS}_LR_{LR}_BC_{BASE_CHANNELS}'
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
-    print(f'{SUP}  - Epochs: {EPOCHS} - LR: {LR} - Base Channels: {BASE_CHANNELS}')
+    W_PATH = f'{RESULTS_DIR}/best_wavelet.npy'
+
+    loaded_wavelet = np.load(W_PATH)
+
+    print(f'FINE-TUNNING    - {SUP}  - Epochs: {EPOCHS} - LR: {LR} - Base Channels: {BASE_CHANNELS}')
 
     y = load_data(data_path=Y_PATH)
     print(f'Imagem blurred: {Y_PATH}    -  Shape: {y.shape} - min: {y.min()}    - max: {y.max()}')
@@ -178,6 +194,6 @@ if __name__ == "__main__":
     else:
         x = None
 
-    train_ssl_bd(y, x, is_supervised, n_epochs=EPOCHS, learning_rate=LR, base_channels=BASE_CHANNELS, verbose_every=10, results_dir=RESULTS_DIR)
+    fine_tunning_ssl_bd(y, loaded_wavelet, x, is_supervised, n_epochs=EPOCHS, learning_rate=LR, base_channels=BASE_CHANNELS, verbose_every=10, results_dir=RESULTS_DIR)
 
     print('Fim do processamento')

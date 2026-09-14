@@ -10,11 +10,11 @@ def zScore(data):
     return (data - mean) / (std * n_std)
 
 def load_data(data_path: str, to_norm: bool = True):
-    data = np.load(data_path).astype("float32")[0]
+    data = np.load(data_path).astype("float32")
+    data = data if data.ndim == 2 else data[0]
     data = data.reshape(data.shape[-2], data.shape[-1])
     if to_norm:
         data = zScore(data)
-
     return data
 
 def vmin_vmax_percentile(target):
