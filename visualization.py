@@ -91,3 +91,79 @@ def plot_comparison(input, output, results_dir, name, snr2=None, target=None):
     plt.savefig(f'{results_dir}/{name}.pdf', bbox_inches='tight', transparent=False)
 
     plt.close()
+
+
+def plot_wavelet(
+    wavelet: np.ndarray,
+    results_dir: str,
+    dt: float = None,
+    true_wavelet: np.ndarray = None,
+    title: str = "Wavelet",
+    ax: plt.Axes = None,
+):
+    """
+    Plota a wavelet predita (amplitude x tempo), no mesmo estilo dos
+    gráficos de wavelet do artigo (ex.: Figuras 6, 12, 17).
+ 
+    Parâmetros
+    ----------
+    wavelet : np.ndarray ou torch.Tensor, shape (L,)
+        Wavelet predita (por exemplo, `resultado['wavelet']` retornado
+        por `train_ssl_bd`, ou `outputs['wavelet']` do forward do
+        modelo).
+    dt : float, opcional
+        Intervalo de amostragem no tempo (em segundos). Se fornecido, o
+        eixo x é mostrado em segundos, centralizado em torno de zero
+        (como nas Figuras 6, 12 e 17). Se None, o eixo x mostra apenas o
+        índice da amostra.
+    true_wavelet : np.ndarray, opcional
+        Wavelet verdadeira (ground truth), se disponível, para sobrepor
+        a curva estimada com a curva real -- reproduzindo a comparação
+        feita na Figura 6 do artigo ("Estimated" vs "True").
+    title : str
+        Título do gráfico.
+    ax : matplotlib.axes.Axes, opcional
+        Eixo onde plotar. Se None, cria uma nova figura.
+ 
+    Retorna
+    -------
+    matplotlib.axes.Axes
+        O eixo com o gráfico plotado.
+    """
+    # aceita tanto np.ndarray quanto torch.Tensor sem exigir import de torch
+    wavelet = np.asarray(
+        wavelet.detach().cpu().numpy() if hasattr(wavelet, "detach") else wavelet,
+        dtype=float,
+    )
+ 
+    n = wavelet.shape[0]
+ 
+    if dt is not None:
+        # eixo do tempo centralizado em zero, como nas Figuras 6/12/17
+        t = (np.arange(n) - n // 2) * dt
+        xlabel = "Time (s)"
+    else:
+        t = np.arange(n)
+        xlabel = "Sample index"
+ 
+    if ax is None:
+        _, ax = plt.subplots(figsize=(6, 4))
+ 
+    if true_wavelet is not None:
+        true_wavelet = np.asarray(
+            true_wavelet.detach().cpu().numpy() if hasattr(true_wavelet, "detach") else true_wavelet,
+            dtype=float,
+        )
+        ax.plot(t, true_wavelet, color="black", linestyle="-", label="True")
+        ax.plot(t, wavelet, color="red", linestyle="--", label="Estimated")
+        ax.legend()
+    else:
+        ax.plot(t, wavelet, color="red", linestyle="-", label="Estimated")
+ 
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel("Amplitude")
+    ax.set_title(title)
+    ax.grid(True, alpha=0.3)
+ 
+    plt.savefig(f'{results_dir}/wavelet.png', bbox_inches='tight', transparent=False)
+    plt.savefig(f'{results_dir}/wavelet.pdf', bbox_inches='tight', transparent=False)
