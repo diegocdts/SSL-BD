@@ -24,10 +24,9 @@ import torch
 import os
 from pathlib import Path
 
-from wavelet_estimation import estimate_zero_phase_wavelet
 from losses import relative_sparsity_mu
 from model import SSLBD
-from visualization import plot_comparison, load_data
+from visualization import plot_comparison, plot_wavelet, load_data
 from scores import export_metrics_csv
 
 
@@ -41,7 +40,8 @@ def fine_tunning_ssl_bd(
     base_channels: int = 16,
     device: str = None,
     verbose_every: int = 500,
-    results_dir: str = None
+    results_dir: str = None,
+    wavelet_title: str = None
 ):
     """
     Executa o treinamento completo do SSL-BD sobre um dado sísmico 2D.
@@ -69,6 +69,8 @@ def fine_tunning_ssl_bd(
         A cada quantas épocas imprimir o valor da perda.
     results_dir: str
         Caminho para salvar resultados
+    wavelet_title: str
+        Titulo da wavelet
 
     Retorna
     -------
@@ -148,6 +150,7 @@ def fine_tunning_ssl_bd(
             y = y_obs.detach().cpu().numpy().squeeze()
             snr2 = export_metrics_csv(input=y, output=best_reflectivity, results_dir=results_dir, target=ground_truth)
             plot_comparison(input=y, output=best_reflectivity, results_dir=results_dir, name='best_reflectivity', snr2=snr2, target=ground_truth)        
+            plot_wavelet(wavelet=best_wavelet, results_dir=results_dir, title=wavelet_title)
 
     # --------------------------------------------------------------
     # Passo 3: salva melhor modelo e wavelet e refletividade correspondentes
@@ -177,6 +180,7 @@ if __name__ == "__main__":
     LR = 1e-5
     BASE_CHANNELS = 64
     RESULTS_DIR = f'/home/src/results/SSLBD_DATA_{Path(Y_PATH).stem}_{SUP}_EP_{EPOCHS}_LR_{LR}_BC_{BASE_CHANNELS}'
+    WAVELET_TITLE = f'SSLBD_DATA_{Path(Y_PATH).stem}_{SUP}_{BASE_CHANNELS}'
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     W_PATH = f'{RESULTS_DIR}/best_wavelet.npy'
@@ -194,6 +198,6 @@ if __name__ == "__main__":
     else:
         x = None
 
-    fine_tunning_ssl_bd(y, loaded_wavelet, x, is_supervised, n_epochs=EPOCHS, learning_rate=LR, base_channels=BASE_CHANNELS, verbose_every=10, results_dir=RESULTS_DIR)
+    fine_tunning_ssl_bd(y, loaded_wavelet, x, is_supervised, n_epochs=EPOCHS, learning_rate=LR, base_channels=BASE_CHANNELS, verbose_every=10, results_dir=RESULTS_DIR, wavelet_title=WAVELET_TITLE)
 
     print('Fim do processamento')
