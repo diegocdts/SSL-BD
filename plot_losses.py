@@ -27,7 +27,7 @@ def plot_training_losses(loss_paths, model_names, results_dir):
     for loss_path, model_name in zip(loss_paths, model_names):
         loss = np.load(loss_path)
 
-        plt.plot(loss, label=model_name)
+        plt.plot(loss, label=model_name.replace('reflectivity', 'output'))
 
     plt.xlabel("Epoch")
     plt.ylabel("Training Loss")
@@ -72,7 +72,7 @@ def plot_training_losses(loss_paths, model_names, results_dir):
 
             epochs = np.arange(start_epoch, start_epoch + len(loss_zoom))
 
-            plt.plot(epochs, loss_zoom, label=model_name)
+            plt.plot(epochs, loss_zoom, label=model_name.replace('reflectivity', 'output'))
 
         plt.xlabel("Epoch")
         plt.ylabel("Training Loss")

@@ -167,3 +167,5 @@ def plot_wavelet(
  
     plt.savefig(f'{results_dir}/wavelet.png', bbox_inches='tight', transparent=False)
     plt.savefig(f'{results_dir}/wavelet.pdf', bbox_inches='tight', transparent=False)
+
+    plt.close()
