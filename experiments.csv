@@ -1,0 +1,9 @@
+True,/home/data/IN.npy,10000,1e-5,64,/home/data/IMG.npy
+True,/home/data/IN.npy,10000,1e-5,96,/home/data/IMG.npy
+True,/home/data/IN.npy,10000,1e-5,128,/home/data/IMG.npy
+False,/home/data/IN.npy,10000,1e-5,64,/home/data/IMG.npy
+False,/home/data/IN.npy,10000,1e-5,96,/home/data/IMG.npy
+False,/home/data/IN.npy,10000,1e-5,128,/home/data/IMG.npy
+False,/home/data/IMG.npy,10000,1e-5,64,/home/data/IMG.npy
+False,/home/data/IMG.npy,10000,1e-5,96,/home/data/IMG.npy
+False,/home/data/IMG.npy,10000,1e-5,128,/home/data/IMG.npy

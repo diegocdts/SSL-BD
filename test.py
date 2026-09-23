@@ -88,38 +88,38 @@ def test_ssl_bd(
 
     np.save(f'{test_dir}/reflectivity.npy', reflectivity)
 
-    snr2 = export_metrics_csv(input=y, output=reflectivity, results_dir=test_dir, target=x)
+    snr2 = export_metrics_csv(input=seismic_data, output=reflectivity, results_dir=test_dir, target=ground_truth)
 
-    plot_comparison(input=y, output=reflectivity, results_dir=test_dir, name='reflectivity', snr2=snr2, target=x) 
+    plot_comparison(input=seismic_data, output=reflectivity, results_dir=test_dir, name='reflectivity', snr2=snr2, target=ground_truth) 
 
     return reflectivity
 
 
-is_supervised = True
-SUP = 'SUP' if is_supervised else 'SELF-SUP'
-TRAIN_Y_PATH = "/home/data/IN.npy"
-TEST_Y_PATH = "/home/data/IMG.npy"
-X_PATH = "/home/data/RFLT.npy" if 'IN.npy' in TEST_Y_PATH else None
-EPOCHS = 10000
-LR = 1e-5
-BASE_CHANNELS = 128
-RESULTS_DIR = f'/home/src/results/SSLBD_DATA_{Path(TRAIN_Y_PATH).stem}_{SUP}_EP_{EPOCHS}_LR_{LR}_BC_{BASE_CHANNELS}'
-TEST_DIR = f'{RESULTS_DIR}/test_{Path(TEST_Y_PATH).stem}'
-os.makedirs(TEST_DIR, exist_ok=True)
+def call_test(is_supervised, train_y_path, epochs, lr, base_channels, test_y_path):
+    SUP = 'SUP' if is_supervised else 'SELF-SUP'
+    TRAIN_Y_PATH = train_y_path
+    TEST_Y_PATH = test_y_path
+    X_PATH = "/home/data/RFLT.npy" if 'IN.npy' in TEST_Y_PATH else None
+    EPOCHS = epochs
+    LR = lr
+    BASE_CHANNELS = base_channels
 
-print(f'{SUP}  - Epochs: {EPOCHS} - LR: {LR} - Base Channels: {BASE_CHANNELS}')
+    RESULTS_DIR = f'/home/src/results/SSLBD_DATA_{Path(TRAIN_Y_PATH).stem}_{SUP}_EP_{EPOCHS}_LR_{LR}_BC_{BASE_CHANNELS}'
+    TEST_DIR = f'{RESULTS_DIR}/test_{Path(TEST_Y_PATH).stem}'
+    os.makedirs(TEST_DIR, exist_ok=True)
 
-y = load_data(data_path=TEST_Y_PATH)
-print(f'Imagem blurred: {TEST_Y_PATH}    -  Shape: {y.shape} - min: {y.min()}    - max: {y.max()}')
+    print(f'TESTING: {SUP}  - Epochs: {EPOCHS} - LR: {LR} - Base Channels: {BASE_CHANNELS}')
 
-if X_PATH is not None:
-    x = load_data(data_path=X_PATH)
-    print(f'Imagem limpa: {X_PATH}    -  Shape: {x.shape} - min: {x.min()}  - max: {x.max()}')
-else:
-    is_supervised = False
-    x = None
+    y = load_data(data_path=TEST_Y_PATH)
+    print(f'Imagem blurred: {TEST_Y_PATH}    -  Shape: {y.shape} - min: {y.min()}    - max: {y.max()}')
 
-test_ssl_bd(y, x, base_channels=BASE_CHANNELS, results_dir=RESULTS_DIR, test_dir=TEST_DIR)    
+    if X_PATH is not None:
+        x = load_data(data_path=X_PATH)
+        print(f'Imagem limpa: {X_PATH}    -  Shape: {x.shape} - min: {x.min()}  - max: {x.max()}')
+    else:
+        is_supervised = False
+        x = None
 
-print('Fim do processamento')
+    test_ssl_bd(y, x, base_channels=BASE_CHANNELS, results_dir=RESULTS_DIR, test_dir=TEST_DIR)    
 
+    print('Fim do teste')

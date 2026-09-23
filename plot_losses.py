@@ -1,3 +1,4 @@
+import re
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -102,23 +103,13 @@ def plot_training_losses(loss_paths, model_names, results_dir):
     make_zoom(is_self_sup=False)
 
 
-loss_paths = [
-    "/home/src/results/SSLBD_DATA_IMG_SELF-SUP_EP_10000_LR_1e-05_BC_64/loss_history.npy",
-    "/home/src/results/SSLBD_DATA_IN_SELF-SUP_EP_10000_LR_1e-05_BC_64/loss_history.npy",
-    "/home/src/results/SSLBD_DATA_IN_SUP_EP_10000_LR_1e-05_BC_64/loss_history.npy",
-    "/home/src/results/SSLBD_DATA_IN_SUP_EP_10000_LR_1e-05_BC_128/loss_history.npy",
-    "/home/src/results/SSLBD_DATA_reflectivity_SELF-SUP_EP_10000_LR_1e-05_BC_64/loss_history.npy"
-]
+def call_losses(loss_paths):
+    model_names = [
+        re.sub(r'EP_[^_]+_LR_[^_]+_BC_', '', Path(loss_path).parent.name)
+        for loss_path in loss_paths
+    ]
 
-model_names = [
-    Path(loss_path).parent.name.replace(
-        'EP_10000_LR_1e-05_BC_', ''
-    )
-    for loss_path in loss_paths
-]
+    results_dir = str(Path(loss_paths[0]).parent.parent)
 
-results_dir = str(Path(loss_paths[0]).parent.parent)
-
-plot_training_losses(loss_paths, model_names, results_dir)
-
-print("Fim do processamento")
+    plot_training_losses(loss_paths, model_names, results_dir)
+    

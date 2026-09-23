@@ -1,4 +1,5 @@
 __pycache__
 slurms
-results
+results/*
 model
+first_results/*

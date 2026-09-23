@@ -7,7 +7,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:4
-#SBATCH --time=100:00:00
+#SBATCH --time=240:00:00
 #SBATCH --output=./slurms/Result-%x.%j.out
 #SBATCH --error=./slurms/Result-%x.%j.err
 #SBATCH --exclusive
@@ -27,5 +27,5 @@ srun singularity exec \
 -B ${DIR_SRC}:/home/src \
 -B ${DIR_DATA}:/home/data \
 --nv ${DIR_CONT}/pytorch-ngc-digitalrockframework-14082024.sif \
-python -u /home/src/plot_losses.py \
+python -u /home/src/workflow.py \
 --config_idx $SLURM_ARRAY_TASK_ID

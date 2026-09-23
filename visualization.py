@@ -1,4 +1,6 @@
 import numpy as np
+import re
+import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
@@ -167,5 +169,77 @@ def plot_wavelet(
  
     plt.savefig(f'{results_dir}/wavelet.png', bbox_inches='tight', transparent=False)
     plt.savefig(f'{results_dir}/wavelet.pdf', bbox_inches='tight', transparent=False)
+
+    plt.close()
+
+
+def plot_wavelets(directory="wavelets", cmap="Blues", title: str = "Wavelet"):
+    """
+    Ordena e plota todas as wavelets armazenadas no diretório.
+
+    Os arquivos devem seguir o padrão:
+        wavelet_epoch_X.npy
+
+    Parâmetros
+    ----------
+    directory : str
+        Diretório contendo os arquivos .npy.
+    cmap : str
+        Colormap do Matplotlib usado para o gradiente de cores.
+    """
+
+    # Encontrar arquivos no formato wavelet_epoch_X.npy
+    pattern = re.compile(r"wavelet_epoch_(\d+)\.npy$")
+
+    wavelet_files = []
+
+    for filename in os.listdir(directory):
+        match = pattern.match(filename)
+
+        if match:
+            epoch = int(match.group(1))
+            wavelet_files.append((epoch, filename))
+
+    if not wavelet_files:
+        raise ValueError(
+            f"Nenhum arquivo 'wavelet_epoch_X.npy' encontrado em '{directory}'."
+        )
+
+    # Ordenar pela época
+    wavelet_files.sort(key=lambda x: x[0])
+
+    # Colormap
+    colors = plt.get_cmap(cmap)(
+        np.linspace(0.25, 1.0, len(wavelet_files))
+    )
+
+    # Criar figura
+    plt.figure(figsize=(12, 6))
+
+    for color, (epoch, filename) in zip(colors, wavelet_files):
+
+        filepath = os.path.join(directory, filename)
+        wavelet = np.load(filepath)
+
+        plt.plot(
+            wavelet,
+            color=color,
+            linewidth=1.5,
+            label=f"Epoch {epoch}"
+        )
+
+    plt.xlabel("Sample")
+    plt.ylabel("Amplitude")
+    plt.title(title)
+    plt.grid(alpha=0.2)
+
+    # Mostrar legenda apenas se não houver muitas épocas
+    if len(wavelet_files) <= 20:
+        plt.legend()
+
+    plt.tight_layout()
+    
+    plt.savefig(f'{directory}/wavelet_history.png', bbox_inches='tight', transparent=False)
+    plt.savefig(f'{directory}/wavelet_history.pdf', bbox_inches='tight', transparent=False)
 
     plt.close()

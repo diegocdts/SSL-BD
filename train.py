@@ -21,12 +21,13 @@ Uso:
 import numpy as np
 import torch
 import os
+import copy
 from pathlib import Path
 
 from wavelet_estimation import estimate_zero_phase_wavelet
 from losses import relative_sparsity_mu
 from model import SSLBD
-from visualization import plot_comparison, plot_wavelet, load_data
+from visualization import plot_comparison, plot_wavelet, plot_wavelets, load_data
 from scores import export_metrics_csv
 
 
@@ -80,6 +81,9 @@ def train_ssl_bd(
 
     assert results_dir is not None, "O path para os resultados precisa ser definido"
 
+    wavelets_dir = f'{results_dir}/wavelets'
+    os.makedirs(wavelets_dir, exist_ok=True)
+
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -110,7 +114,7 @@ def train_ssl_bd(
 
     loss_history = []
 
-    lower_loss, best_model_state_dict, best_reflectivity, best_wavelet = None, None, None, None
+    lower_loss, best_model_state_dict, best_reflectivity, best_wavelet, window_wavelet = None, None, None, None, None
 
     for epoch in range(n_epochs):
         r_epoch = epoch / max(n_epochs - 1, 1)
@@ -126,18 +130,18 @@ def train_ssl_bd(
 
         loss_history.append(loss.item())
 
-        if verbose_every and (epoch % verbose_every == 0 or epoch == n_epochs - 1):
-            print(f"época {epoch:6d} | perda = {loss.item():.6e} | mu = {mu:.4f}")
-
-        if lower_loss is None or loss < lower_loss:
-            lower_loss = loss
-            best_model_state_dict = model.state_dict()
+        if lower_loss is None or loss.item() < lower_loss:
+            lower_loss = loss.item()
+            best_model_state_dict = copy.deepcopy(model.state_dict())
             best_reflectivity = outputs["reflectivity"].detach().cpu().numpy().squeeze()
             best_wavelet = outputs["wavelet"].detach().cpu().numpy()
-            y = y_obs.detach().cpu().numpy().squeeze()
-            snr2 = export_metrics_csv(input=y, output=best_reflectivity, results_dir=results_dir, target=ground_truth)
-            plot_comparison(input=y, output=best_reflectivity, results_dir=results_dir, name='best_reflectivity', snr2=snr2, target=ground_truth)
-            plot_wavelet(wavelet=best_wavelet, results_dir=results_dir, title=wavelet_title)
+            window_wavelet = best_wavelet
+
+        if verbose_every and (epoch % verbose_every == 0 or epoch == n_epochs - 1):
+            print(f"época {epoch:6d} | perda = {loss.item():.6e} | mu = {mu:.4f}")
+            if window_wavelet is not None:
+                np.save(f'{wavelets_dir}/wavelet_epoch_{epoch}.npy', window_wavelet)
+                window_wavelet = None
 
     # --------------------------------------------------------------
     # Passo 3: salva melhor modelo e wavelet e refletividade correspondentes
@@ -148,31 +152,30 @@ def train_ssl_bd(
     np.save(f'{results_dir}/best_reflectivity.npy', best_reflectivity)
     np.save(f'{results_dir}/loss_history.npy', loss_history)
 
+    snr2 = export_metrics_csv(input=seismic_data, output=best_reflectivity, results_dir=results_dir, target=ground_truth)
+    plot_comparison(input=seismic_data, output=best_reflectivity, results_dir=results_dir, name='best_reflectivity', snr2=snr2, target=ground_truth)
+    plot_wavelets(wavelets_dir, title=wavelet_title)
+
     return {
         "wavelet": best_wavelet,
         "reflectivity": best_reflectivity,
         "loss_history": loss_history,
     }
 
-if __name__ == "__main__":
-    torch.manual_seed(42)
-    # ------------------------------------------------------------------
-    # Configurações
-    # ------------------------------------------------------------------
-    is_supervised = True
+
+def call_train(is_supervised, train_y_path, epochs, lr, base_channels):
     SUP = 'SUP' if is_supervised else 'SELF-SUP'
-    Y_PATH = "/home/data/IN.npy"
-    #Y_PATH = "/home/data/IMG.npy"
-    #Y_PATH = "/home/src/results/SSLBD_DATA_IN_SUP_EP_10000_LR_1e-05_BC_64/test_IMG/reflectivity.npy"
+    Y_PATH = train_y_path
     X_PATH = "/home/data/RFLT.npy" if 'IN.npy' in Y_PATH else None
-    EPOCHS = 10000
-    LR = 1e-5
-    BASE_CHANNELS = 128
+    EPOCHS = epochs
+    LR = lr
+    BASE_CHANNELS = base_channels
+
     RESULTS_DIR = f'/home/src/results/SSLBD_DATA_{Path(Y_PATH).stem}_{SUP}_EP_{EPOCHS}_LR_{LR}_BC_{BASE_CHANNELS}'
     WAVELET_TITLE = f'SSLBD_DATA_{Path(Y_PATH).stem}_{SUP}_{BASE_CHANNELS}'
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
-    print(f'{SUP}  - Epochs: {EPOCHS} - LR: {LR} - Base Channels: {BASE_CHANNELS}')
+    print(f'TRAINING: {SUP}  - Epochs: {EPOCHS} - LR: {LR} - Base Channels: {BASE_CHANNELS}')
 
     y = load_data(data_path=Y_PATH)
     print(f'Imagem blurred: {Y_PATH}    -  Shape: {y.shape} - min: {y.min()}    - max: {y.max()}')
@@ -183,6 +186,8 @@ if __name__ == "__main__":
     else:
         x = None
 
-    train_ssl_bd(y, x, is_supervised, n_epochs=EPOCHS, learning_rate=LR, base_channels=BASE_CHANNELS, verbose_every=10, results_dir=RESULTS_DIR, wavelet_title=WAVELET_TITLE)
+    train_ssl_bd(y, x, is_supervised, n_epochs=EPOCHS, learning_rate=LR, base_channels=BASE_CHANNELS, results_dir=RESULTS_DIR, wavelet_title=WAVELET_TITLE)
 
-    print('Fim do processamento')
+    print('Fim do treino')
+    
+    return RESULTS_DIR
