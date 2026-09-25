@@ -20,7 +20,7 @@ echo "Job ID: $SLURM_JOB_ID"
 cd $SLURM_SUBMIT_DIR
 
 DIR_SRC=${SLURM_SUBMIT_DIR}
-DIR_DATA="/beegfs/gov7/jessica/data/Filtro_Hessiana"
+DIR_DATA="/beegfs/gaia/tcs/ufrj_ml_u30s/dados/Deblurring"
 DIR_CONT="/beegfs/gaia/tcs/ufrj_ml_u30s/containers"
 
 srun singularity exec \

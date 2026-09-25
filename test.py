@@ -99,12 +99,12 @@ def call_test(is_supervised, train_y_path, epochs, lr, base_channels, test_y_pat
     SUP = 'SUP' if is_supervised else 'SELF-SUP'
     TRAIN_Y_PATH = train_y_path
     TEST_Y_PATH = test_y_path
-    X_PATH = "/home/data/RFLT.npy" if 'IN.npy' in TEST_Y_PATH else None
+    X_PATH = f'{Path(test_y_path).parent}/IMG_Ideal.sgy'
     EPOCHS = epochs
     LR = lr
     BASE_CHANNELS = base_channels
 
-    RESULTS_DIR = f'/home/src/results/SSLBD_DATA_{Path(TRAIN_Y_PATH).stem}_{SUP}_EP_{EPOCHS}_LR_{LR}_BC_{BASE_CHANNELS}'
+    RESULTS_DIR = f'/home/src/results_new_data/SSLBD_DATA_{Path(TRAIN_Y_PATH).stem}_{SUP}_EP_{EPOCHS}_LR_{LR}_BC_{BASE_CHANNELS}'
     TEST_DIR = f'{RESULTS_DIR}/test_{Path(TEST_Y_PATH).stem}'
     os.makedirs(TEST_DIR, exist_ok=True)
 

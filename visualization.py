@@ -1,8 +1,11 @@
 import numpy as np
+import segyio
 import re
 import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+
+from pathlib import Path
 
 
 def zScore(data):
@@ -11,10 +14,32 @@ def zScore(data):
     n_std = 3
     return (data - mean) / (std * n_std)
 
-def load_data(data_path: str, to_norm: bool = True):
-    data = np.load(data_path).astype("float32")
-    data = data if data.ndim == 2 else data[0]
-    data = data.reshape(data.shape[-2], data.shape[-1])
+def load_data(data_path: str, file_name: str = None, to_norm: bool = True):
+    path = Path(data_path)
+    if path.is_file():
+        if '.npy' in data_path:
+            data = np.load(data_path).astype("float32")
+        else:
+            with segyio.open(data_path, ignore_geometry=True) as file:
+                data = segyio.collect(file.trace)
+        data = data if data.ndim == 2 else data[0]
+        data = data.reshape(data.shape[-2], data.shape[-1])
+    else:
+        assert file_name is not None, "O nome (extensão) do arquivo a ser carregado precisa ser informado"
+        data_list = []
+        subdirs = [str(p) for p in path.iterdir() if p.is_dir()]
+        if '.npy' in file_name:
+            for subdir in subdirs:
+                file_path = f'{subdir}/{file_name}'
+                loaded_data = np.load(file_path).astype("float32")
+                data_list.append(loaded_data)
+        else:
+            for subdir in subdirs:
+                file_path = f'{subdir}/{file_name}'
+                with segyio.open(file_path, ignore_geometry=True) as file:
+                    loaded_data = segyio.collect(file.trace)
+                data_list.append(loaded_data)
+        data = np.stack(data_list)
     if to_norm:
         data = zScore(data)
     return data

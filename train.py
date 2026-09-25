@@ -23,12 +23,16 @@ import torch
 import os
 import copy
 from pathlib import Path
+from torch.utils.data import DataLoader, TensorDataset
+from sklearn.model_selection import KFold
+
 
 from wavelet_estimation import estimate_zero_phase_wavelet
 from losses import relative_sparsity_mu
 from model import SSLBD
-from visualization import plot_comparison, plot_wavelet, plot_wavelets, load_data
+from visualization import plot_comparison, plot_wavelets, load_data
 from scores import export_metrics_csv
+from losses import ssl_bd_loss
 
 
 def train_ssl_bd(
@@ -91,17 +95,17 @@ def train_ssl_bd(
     # Passo 1 (Seção 2.2): estimativa do wavelet inicial de fase zero,
     # calculada uma única vez, fora do laço de treinamento.
     # --------------------------------------------------------------
-    w0_np = estimate_zero_phase_wavelet(seismic_data)
+    w0_np = estimate_zero_phase_wavelet(seismic_data[0])
     w0 = torch.tensor(w0_np, dtype=torch.float32, device=device)
 
     # dado sísmico obsevado como tensor (batch=1, canal=1, n_traces, n_samples)
     y_obs = torch.tensor(seismic_data, dtype=torch.float32, device=device)
-    y_obs = y_obs.unsqueeze(0).unsqueeze(0)
+    y_obs = y_obs.unsqueeze(0).unsqueeze(0) if y_obs.ndim == 2 else y_obs.unsqueeze(1)
 
     # ground truth como tensor (batch=1, canal=1, n_traces, n_samples)
     if ground_truth is not None:
         r_real = torch.tensor(ground_truth, dtype=torch.float32, device=device)
-        r_real = r_real.unsqueeze(0).unsqueeze(0)
+        r_real = r_real.unsqueeze(0).unsqueeze(0) if r_real.ndim == 2 else y_obs.unsqueeze(1)
     else:
         is_supervised = False
         r_real = None
@@ -109,8 +113,14 @@ def train_ssl_bd(
     # --------------------------------------------------------------
     # Passo 2: treinamento do modelo com otimizador Adam e lr=1e-5, (conforme Seção 3)
     # --------------------------------------------------------------
-    model = SSLBD(w0=w0, base_channels=base_channels, ground_truth=r_real, is_supervised=is_supervised).to(device)
+    model = SSLBD(w0=w0, base_channels=base_channels, is_supervised=is_supervised).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    y_dataset = TensorDataset(y_obs)
+    y_dataloader = DataLoader(y_dataset, batch_size=1, shuffle=False)
+
+    x_dataset = TensorDataset(r_real)
+    x_dataloader = DataLoader(x_dataset, batch_size=1, shuffle=False)
 
     loss_history = []
 
@@ -120,25 +130,33 @@ def train_ssl_bd(
         r_epoch = epoch / max(n_epochs - 1, 1)
         mu = relative_sparsity_mu(r_epoch)  # Equação 7
 
-        optimizer.zero_grad()
-        outputs = model(y_obs, mu=mu)  # passos 2-4 da Seção 2.1
-        loss = outputs["loss"]
+        epoch_loss = 0.0
 
-        # atualização dos parâmetros via retropropagação (passo 4)
-        loss.backward()
-        optimizer.step()
+        for (y_batch,), (x_batch,) in zip(y_dataloader, x_dataloader):
+            optimizer.zero_grad()
 
-        loss_history.append(loss.item())
+            outputs = model(y_obs=y_batch, mu=mu, r_real=x_batch) # passos 2-4 da Seção 2.1
+            loss = outputs["loss"]
 
-        if lower_loss is None or loss.item() < lower_loss:
-            lower_loss = loss.item()
+            # atualização dos parâmetros via retropropagação (passo 4)
+            loss.backward()
+            optimizer.step()
+
+            epoch_loss += loss.item()
+
+        epoch_loss /= len(y_dataloader)
+
+        loss_history.append(epoch_loss)
+
+        if lower_loss is None or epoch_loss < lower_loss:
+            lower_loss = epoch_loss
             best_model_state_dict = copy.deepcopy(model.state_dict())
             best_reflectivity = outputs["reflectivity"].detach().cpu().numpy().squeeze()
             best_wavelet = outputs["wavelet"].detach().cpu().numpy()
             window_wavelet = best_wavelet
 
         if verbose_every and (epoch % verbose_every == 0 or epoch == n_epochs - 1):
-            print(f"época {epoch:6d} | perda = {loss.item():.6e} | mu = {mu:.4f}")
+            print(f"época {epoch:6d} | perda = {epoch_loss:.6e} | mu = {mu:.4f}")
             if window_wavelet is not None:
                 np.save(f'{wavelets_dir}/wavelet_epoch_{epoch}.npy', window_wavelet)
                 window_wavelet = None
@@ -162,32 +180,61 @@ def train_ssl_bd(
         "loss_history": loss_history,
     }
 
+def evaluate_ssl_bd(model, y_val, x_val, device):
+    if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+    model.eval()
 
-def call_train(is_supervised, train_y_path, epochs, lr, base_channels):
+    with torch.no_grad():
+        y_val = y_val.to(device)
+        x_val = x_val.to(device)
+
+        mu = relative_sparsity_mu(1)
+        pred = model(y_val, mu=mu)
+        loss = ssl_bd_loss(x_val, pred)
+
+    return loss.item()
+
+
+def call_train(is_supervised, train_y_path, n_folds, epochs, lr, base_channels):
     SUP = 'SUP' if is_supervised else 'SELF-SUP'
     Y_PATH = train_y_path
-    X_PATH = "/home/data/RFLT.npy" if 'IN.npy' in Y_PATH else None
+    X_PATH = train_y_path
+    N_FOLDS = n_folds
     EPOCHS = epochs
     LR = lr
     BASE_CHANNELS = base_channels
 
-    RESULTS_DIR = f'/home/src/results/SSLBD_DATA_{Path(Y_PATH).stem}_{SUP}_EP_{EPOCHS}_LR_{LR}_BC_{BASE_CHANNELS}'
+    RESULTS_DIR = f'/home/src/results_new_data/SSLBD_DATA_{Path(Y_PATH).stem}_{SUP}_EP_{EPOCHS}_LR_{LR}_BC_{BASE_CHANNELS}'
     WAVELET_TITLE = f'SSLBD_DATA_{Path(Y_PATH).stem}_{SUP}_{BASE_CHANNELS}'
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     print(f'TRAINING: {SUP}  - Epochs: {EPOCHS} - LR: {LR} - Base Channels: {BASE_CHANNELS}')
 
-    y = load_data(data_path=Y_PATH)
+    y = load_data(data_path=Y_PATH, file_name='IN_FINAL.sgy')
     print(f'Imagem blurred: {Y_PATH}    -  Shape: {y.shape} - min: {y.min()}    - max: {y.max()}')
 
     if X_PATH is not None:
-        x = load_data(data_path=X_PATH)
+        x = load_data(data_path=X_PATH, file_name='RFLT.sgy')
         print(f'Imagem limpa: {X_PATH}    -  Shape: {x.shape} - min: {x.min()}  - max: {x.max()}')
     else:
         x = None
 
-    train_ssl_bd(y, x, is_supervised, n_epochs=EPOCHS, learning_rate=LR, base_channels=BASE_CHANNELS, results_dir=RESULTS_DIR, wavelet_title=WAVELET_TITLE)
+    cv = KFold(n_splits=N_FOLDS, shuffle=True, random_state=42)
+
+    for train_idx, val_idx in cv.split(y):
+        y_train, y_val = y[train_idx], y[val_idx]
+        x_train, x_val = x[train_idx], x[val_idx]
+
+        train_ssl_bd(y_train, x_train, is_supervised, n_epochs=EPOCHS, learning_rate=LR, base_channels=BASE_CHANNELS, results_dir=RESULTS_DIR, wavelet_title=WAVELET_TITLE)
 
     print('Fim do treino')
     
     return RESULTS_DIR
+
+#TODO: retornar modelo na funcao de treino pra poder avaliar em seguida
+#TODO: chamar funcao de avaliacao
+#TODO: exportar e plotar perda de avaliacao
+#TODO: modificar a exportacao do modelo por causa da cross-validacao (antes exportava o melhor
+#       agora preciso decidir se continua fazendo isso e como ou se exporta o modelo final)
+#TODO: implementar crops sobre as imagens
