@@ -114,7 +114,7 @@ def call_test(base_channels, result_dir, test_y_path, test_x_path = None):
 
     if X_PATH is not None:
         x = load_data(data_path=X_PATH)
-        print(f'X: Shape: {x.shape}  - min: {x.min():.4f}    - max: {x.max():.4f}    - Path: {X_PATH}')
+        print(f'X: Shape: {x.shape}  - min: {x.min():.4f}    - max: {x.max():.4f}   - Path: {X_PATH}')
     else:
         is_supervised = False
         x = None

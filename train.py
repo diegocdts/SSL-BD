@@ -179,7 +179,7 @@ def call_train(is_supervised, epochs, lr, base_channels, dir_name, train_y_path,
 
     if X_PATH is not None:
         x = load_data(data_path=X_PATH)
-        print(f'X: Shape: {x.shape}  - min: {x.min():.4f}    - max: {x.max():.4f}    - Path: {X_PATH}')
+        print(f'X: Shape: {x.shape}  - min: {x.min():.4f}    - max: {x.max():.4f}   - Path: {X_PATH}')
     else:
         x = None
 
