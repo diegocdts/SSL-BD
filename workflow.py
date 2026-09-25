@@ -10,7 +10,7 @@ print('Workflow start', datetime.now().strftime("%d/%m/%Y - %H:%M:%S"))
 
 torch.manual_seed(42)
 
-arr = np.loadtxt('/home/src/experiments.csv', delimiter=',', dtype=str)
+arr = np.loadtxt('/home/src/experiments.csv', delimiter=',', dtype=str, ndmin=2)
 loss_paths = []
 
 for line in arr:

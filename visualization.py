@@ -71,7 +71,7 @@ def load_data(data_path: str, file_name: str = None, to_norm: bool = True):
             with segyio.open(data_path, ignore_geometry=True) as file:
                 data = segyio.collect(file.trace)
         data = data if data.ndim == 2 else data[0]
-        data = data.reshape(data.shape[-2], data.shape[-1])[:50,:100]
+        data = data.reshape(data.shape[-2], data.shape[-1])
     else:
         assert file_name is not None, "O nome (extensão) do arquivo a ser carregado precisa ser informado"
         data_list = []

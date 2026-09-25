@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from pathlib import Path
 from model import SSLBD
-from visualization import plot_comparison, load_data
+from visualization import plot_comparison, load_data, extract_patches, reconstruct_patches
 from wavelet_estimation import estimate_zero_phase_wavelet
 from losses import relative_sparsity_mu
 from scores import export_metrics_csv
@@ -50,12 +50,15 @@ def test_ssl_bd(
     w0 = torch.tensor(w0_np, dtype=torch.float32, device=device)
 
     # dado sísmico como tensor (batch=1, canal=1, n_traces, n_samples)
-    y_obs = torch.tensor(seismic_data, dtype=torch.float32, device=device)
-    y_obs = y_obs.unsqueeze(0).unsqueeze(0)
+    y_patches, positions = extract_patches(seismic_data)
+    y_obs = torch.tensor(y_patches, dtype=torch.float32, device=device)
+    y_obs = y_obs.unsqueeze(1).unsqueeze(1)
 
+    # ground truth como tensor (batch=1, canal=1, n_traces, n_samples)
     if ground_truth is not None:
-        r_real = torch.tensor(ground_truth, dtype=torch.float32, device=device)
-        r_real = r_real.unsqueeze(0).unsqueeze(0)
+        x_patches, _ = extract_patches(ground_truth)
+        r_real = torch.tensor(x_patches, dtype=torch.float32, device=device)
+        r_real = r_real.unsqueeze(1).unsqueeze(1)
     else:
         r_real = None
 
@@ -77,40 +80,41 @@ def test_ssl_bd(
     # --------------------------------------------------------------
 
     mu = relative_sparsity_mu(1)
+    output_patchs = []
     with torch.no_grad():
-        outputs = model(y_obs, mu=mu)
+        for y in y_obs:
+            outputs = model(y, mu=mu)
+            reflectivity = outputs["reflectivity"].detach().cpu().numpy()
+            output_patchs.append(reflectivity.squeeze())
 
-    reflectivity = outputs["reflectivity"].detach().cpu().numpy()
-
-    print(reflectivity.shape)
-    reflectivity = reflectivity.squeeze()
-    print(reflectivity.shape)
+    output_patchs = np.array(output_patchs)
+    prediction = reconstruct_patches(output_patchs, positions, seismic_data.shape)
 
     np.save(f'{test_dir}/reflectivity.npy', reflectivity)
 
-    snr2 = export_metrics_csv(input=seismic_data, output=reflectivity, results_dir=test_dir, target=ground_truth)
+    snr2 = export_metrics_csv(input=seismic_data, output=prediction, results_dir=test_dir, target=ground_truth)
 
-    plot_comparison(input=seismic_data, output=reflectivity, results_dir=test_dir, name='reflectivity', snr2=snr2, target=ground_truth) 
+    plot_comparison(input=seismic_data, output=prediction, results_dir=test_dir, name='reflectivity', snr2=snr2, target=ground_truth) 
 
-    return reflectivity
+    return prediction
 
 
 def call_test(base_channels, result_dir, test_y_path, test_x_path = None):
-    TEST_Y_PATH = test_y_path
+    Y_PATH = test_y_path
     X_PATH = test_x_path
 
     RESULTS_DIR = result_dir
-    TEST_DIR = f'{RESULTS_DIR}/test_{Path(TEST_Y_PATH).stem}'
+    TEST_DIR = f'{RESULTS_DIR}/test_{Path(Y_PATH).stem}'
     os.makedirs(TEST_DIR, exist_ok=True)
 
     print(f'TESTING')
 
-    y = load_data(data_path=TEST_Y_PATH)
-    print(f'Imagem blurred: {TEST_Y_PATH}    -  Shape: {y.shape} - min: {y.min()}    - max: {y.max()}')
+    y = load_data(data_path=Y_PATH)
+    print(f'Y: Shape: {y.shape}  - min: {y.min():.4f}    - max: {y.max():.4f}  - Path: {Y_PATH}')
 
     if X_PATH is not None:
         x = load_data(data_path=X_PATH)
-        print(f'Imagem limpa: {X_PATH}    -  Shape: {x.shape} - min: {x.min()}  - max: {x.max()}')
+        print(f'X: Shape: {x.shape}  - min: {x.min():.4f}    - max: {x.max():.4f}    - Path: {X_PATH}')
     else:
         is_supervised = False
         x = None
