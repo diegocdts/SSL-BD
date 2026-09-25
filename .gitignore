@@ -2,4 +2,4 @@ __pycache__
 slurms
 results/*
 model
-first_results/*
+results_v*/*

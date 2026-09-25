@@ -163,16 +163,16 @@ def train_ssl_bd(
     }
 
 
-def call_train(is_supervised, train_y_path, epochs, lr, base_channels):
+def call_train(is_supervised, epochs, lr, base_channels, dir_name, train_y_path, train_x_path = None):
     SUP = 'SUP' if is_supervised else 'SELF-SUP'
     Y_PATH = train_y_path
-    X_PATH = "/home/data/RFLT.npy" if 'IN.npy' in Y_PATH else None
+    X_PATH = train_x_path
     EPOCHS = epochs
     LR = lr
     BASE_CHANNELS = base_channels
 
-    RESULTS_DIR = f'/home/src/results/SSLBD_DATA_{Path(Y_PATH).stem}_{SUP}_EP_{EPOCHS}_LR_{LR}_BC_{BASE_CHANNELS}'
-    WAVELET_TITLE = f'SSLBD_DATA_{Path(Y_PATH).stem}_{SUP}_{BASE_CHANNELS}'
+    RESULTS_DIR = f'/home/src/results/{dir_name}_{SUP}_EP_{EPOCHS}_LR_{LR}_BC_{BASE_CHANNELS}'
+    WAVELET_TITLE = f'{dir_name}_{SUP}_{BASE_CHANNELS}'
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     print(f'TRAINING: {SUP}  - Epochs: {EPOCHS} - LR: {LR} - Base Channels: {BASE_CHANNELS}')

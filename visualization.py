@@ -1,20 +1,93 @@
 import numpy as np
+import segyio
 import re
 import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
+from pathlib import Path
+
+
+def extract_patches(image, patch_size=(352, 1400)):
+    ph, pw = patch_size
+    h, w = image.shape[-2:]
+
+    patches = []
+    positions = []
+
+    for y in range(0, h, ph):
+        for x in range(0, w, pw):
+
+            y_end = min(y + ph, h)
+            x_end = min(x + pw, w)
+
+            patch = image[..., y:y_end, x:x_end]
+
+            # padding para o tamanho fixo
+            padded = np.zeros(
+                (*image.shape[:-2], ph, pw),
+                dtype=image.dtype
+            )
+
+            padded[..., :y_end-y, :x_end-x] = patch
+
+            patches.append(padded)
+            positions.append((y, x, y_end, x_end))
+
+    return np.stack(patches), positions
+
+
+def reconstruct_patches(predictions, positions, original_shape):
+    h, w = original_shape[-2:]
+
+    output = np.zeros(
+        (*predictions.shape[1:-2], h, w),
+        dtype=predictions.dtype
+    )
+
+    for prediction, (y, x, y_end, x_end) in zip(
+        predictions, positions
+    ):
+        output[..., y:y_end, x:x_end] = \
+            prediction[..., :y_end-y, :x_end-x]
+
+    return output
+
 
 def zScore(data):
     mean = np.mean(data)
     std = np.std(data)
+    if std == 0 or not np.isfinite(std):
+        std = 1e-8
     n_std = 3
     return (data - mean) / (std * n_std)
 
-def load_data(data_path: str, to_norm: bool = True):
-    data = np.load(data_path).astype("float32")
-    data = data if data.ndim == 2 else data[0]
-    data = data.reshape(data.shape[-2], data.shape[-1])
+def load_data(data_path: str, file_name: str = None, to_norm: bool = True):
+    path = Path(data_path)
+    if path.is_file():
+        if '.npy' in data_path:
+            data = np.load(data_path).astype("float32")
+        else:
+            with segyio.open(data_path, ignore_geometry=True) as file:
+                data = segyio.collect(file.trace)
+        data = data if data.ndim == 2 else data[0]
+        data = data.reshape(data.shape[-2], data.shape[-1])[:50,:100]
+    else:
+        assert file_name is not None, "O nome (extensão) do arquivo a ser carregado precisa ser informado"
+        data_list = []
+        subdirs = [str(p) for p in path.iterdir() if p.is_dir()]
+        if '.npy' in file_name:
+            for subdir in subdirs:
+                file_path = f'{subdir}/{file_name}'
+                loaded_data = np.load(file_path).astype("float32")
+                data_list.append(loaded_data)
+        else:
+            for subdir in subdirs:
+                file_path = f'{subdir}/{file_name}'
+                with segyio.open(file_path, ignore_geometry=True) as file:
+                    loaded_data = segyio.collect(file.trace)
+                data_list.append(loaded_data)
+        data = np.stack(data_list)
     if to_norm:
         data = zScore(data)
     return data
@@ -208,22 +281,16 @@ def plot_wavelets(directory="wavelets", cmap="Blues", title: str = "Wavelet"):
     # Ordenar pela época
     wavelet_files.sort(key=lambda x: x[0])
 
-    # Colormap
-    colors = plt.get_cmap(cmap)(
-        np.linspace(0.25, 1.0, len(wavelet_files))
-    )
-
     # Criar figura
     plt.figure(figsize=(12, 6))
 
-    for color, (epoch, filename) in zip(colors, wavelet_files):
+    for (epoch, filename) in wavelet_files:
 
         filepath = os.path.join(directory, filename)
         wavelet = np.load(filepath)
 
         plt.plot(
             wavelet,
-            color=color,
             linewidth=1.5,
             label=f"Epoch {epoch}"
         )
@@ -233,9 +300,7 @@ def plot_wavelets(directory="wavelets", cmap="Blues", title: str = "Wavelet"):
     plt.title(title)
     plt.grid(alpha=0.2)
 
-    # Mostrar legenda apenas se não houver muitas épocas
-    if len(wavelet_files) <= 20:
-        plt.legend()
+    plt.legend(fontsize='xx-small')
 
     plt.tight_layout()
     

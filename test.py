@@ -95,20 +95,15 @@ def test_ssl_bd(
     return reflectivity
 
 
-def call_test(is_supervised, train_y_path, epochs, lr, base_channels, test_y_path):
-    SUP = 'SUP' if is_supervised else 'SELF-SUP'
-    TRAIN_Y_PATH = train_y_path
+def call_test(base_channels, result_dir, test_y_path, test_x_path = None):
     TEST_Y_PATH = test_y_path
-    X_PATH = "/home/data/RFLT.npy" if 'IN.npy' in TEST_Y_PATH else None
-    EPOCHS = epochs
-    LR = lr
-    BASE_CHANNELS = base_channels
+    X_PATH = test_x_path
 
-    RESULTS_DIR = f'/home/src/results/SSLBD_DATA_{Path(TRAIN_Y_PATH).stem}_{SUP}_EP_{EPOCHS}_LR_{LR}_BC_{BASE_CHANNELS}'
+    RESULTS_DIR = result_dir
     TEST_DIR = f'{RESULTS_DIR}/test_{Path(TEST_Y_PATH).stem}'
     os.makedirs(TEST_DIR, exist_ok=True)
 
-    print(f'TESTING: {SUP}  - Epochs: {EPOCHS} - LR: {LR} - Base Channels: {BASE_CHANNELS}')
+    print(f'TESTING')
 
     y = load_data(data_path=TEST_Y_PATH)
     print(f'Imagem blurred: {TEST_Y_PATH}    -  Shape: {y.shape} - min: {y.min()}    - max: {y.max()}')
@@ -120,6 +115,6 @@ def call_test(is_supervised, train_y_path, epochs, lr, base_channels, test_y_pat
         is_supervised = False
         x = None
 
-    test_ssl_bd(y, x, base_channels=BASE_CHANNELS, results_dir=RESULTS_DIR, test_dir=TEST_DIR)    
+    test_ssl_bd(y, x, base_channels=base_channels, results_dir=RESULTS_DIR, test_dir=TEST_DIR)    
 
     print('Fim do teste')
