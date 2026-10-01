@@ -94,16 +94,17 @@ def train_ssl_bd(
     w0_np = estimate_zero_phase_wavelet(seismic_data)
     w0 = torch.tensor(w0_np, dtype=torch.float32, device=device)
 
+    y_start, x_start = 200, 3500
     # dado sísmico obsevado como tensor (batch=1, canal=1, n_traces, n_samples)
-    y_patches, positions = extract_patches(seismic_data)
-    y_obs = torch.tensor(y_patches, dtype=torch.float32, device=device)
-    y_obs = y_obs.unsqueeze(1).unsqueeze(1)
+    y_patch = extract_patches(seismic_data, y_start, x_start)
+    y_obs = torch.tensor(y_patch, dtype=torch.float32, device=device)
+    y_obs = y_obs.unsqueeze(0).unsqueeze(0).unsqueeze(0)
 
     # ground truth como tensor (batch=1, canal=1, n_traces, n_samples)
     if ground_truth is not None:
-        x_patches, _ = extract_patches(ground_truth)
-        r_real = torch.tensor(x_patches, dtype=torch.float32, device=device)
-        r_real = r_real.unsqueeze(1).unsqueeze(1)
+        x_patch = extract_patches(ground_truth, y_start, x_start)
+        r_real = torch.tensor(x_patch, dtype=torch.float32, device=device)
+        r_real = r_real.unsqueeze(0).unsqueeze(0).unsqueeze(0)
     else:
         is_supervised = False
         r_real = None

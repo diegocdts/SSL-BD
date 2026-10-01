@@ -8,12 +8,18 @@ import matplotlib.patches as patches
 from pathlib import Path
 
 
-def extract_patches(image, patch_size=(352, 1400)):
+def extract_patches(image, y_start=None, x_start=None, patch_size=(352, 1400)):
     ph, pw = patch_size
     h, w = image.shape[-2:]
 
     patches = []
     positions = []
+
+    if x_start is not None and y_start is not None:
+        y_end = y_start + ph
+        x_end = x_start + pw
+        patch = image[..., y_start:y_end, x_start:x_end]
+        return patch
 
     for y in range(0, h, ph):
         for x in range(0, w, pw):
