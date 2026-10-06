@@ -8,7 +8,7 @@ import matplotlib.patches as patches
 from pathlib import Path
 
 
-def extract_patches(image, y_start=None, x_start=None, patch_size=(352, 1400)):
+def extract_patches(image, y_start=None, x_start=None, patch_size=(352, 1400), to_norm=False):
     ph, pw = patch_size
     h, w = image.shape[-2:]
 
@@ -19,8 +19,12 @@ def extract_patches(image, y_start=None, x_start=None, patch_size=(352, 1400)):
         y_end = y_start + ph
         x_end = x_start + pw
         patch = image[..., y_start:y_end, x_start:x_end]
+        if to_norm:
+            patch = zScore(patch)
         return patch
 
+    if to_norm:
+        image = zScore(image)
     for y in range(0, h, ph):
         for x in range(0, w, pw):
 
@@ -78,6 +82,8 @@ def load_data(data_path: str, file_name: str = None, to_norm: bool = True):
                 data = segyio.collect(file.trace)
         data = data if data.ndim == 2 else data[0]
         data = data.reshape(data.shape[-2], data.shape[-1])
+        if to_norm:
+            data = zScore(data)
     else:
         assert file_name is not None, "O nome (extensão) do arquivo a ser carregado precisa ser informado"
         data_list = []
@@ -86,16 +92,18 @@ def load_data(data_path: str, file_name: str = None, to_norm: bool = True):
             for subdir in subdirs:
                 file_path = f'{subdir}/{file_name}'
                 loaded_data = np.load(file_path).astype("float32")
+                if to_norm:
+                    loaded_data = zScore(loaded_data)
                 data_list.append(loaded_data)
         else:
             for subdir in subdirs:
                 file_path = f'{subdir}/{file_name}'
                 with segyio.open(file_path, ignore_geometry=True) as file:
                     loaded_data = segyio.collect(file.trace)
+                    if to_norm:
+                        loaded_data = zScore(loaded_data)
                 data_list.append(loaded_data)
         data = np.stack(data_list)
-    if to_norm:
-        data = zScore(data)
     return data
 
 def vmin_vmax_percentile(target):

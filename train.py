@@ -96,13 +96,13 @@ def train_ssl_bd(
 
     y_start, x_start = 200, 3500
     # dado sísmico obsevado como tensor (batch=1, canal=1, n_traces, n_samples)
-    y_patch = extract_patches(seismic_data, y_start, x_start)
+    y_patch = extract_patches(seismic_data, y_start, x_start, to_norm=True)
     y_obs = torch.tensor(y_patch, dtype=torch.float32, device=device)
     y_obs = y_obs.unsqueeze(0).unsqueeze(0).unsqueeze(0)
 
     # ground truth como tensor (batch=1, canal=1, n_traces, n_samples)
     if ground_truth is not None:
-        x_patch = extract_patches(ground_truth, y_start, x_start)
+        x_patch = extract_patches(ground_truth, y_start, x_start, to_norm=True)
         r_real = torch.tensor(x_patch, dtype=torch.float32, device=device)
         r_real = r_real.unsqueeze(0).unsqueeze(0).unsqueeze(0)
     else:
@@ -175,11 +175,11 @@ def call_train(is_supervised, epochs, lr, base_channels, dir_name, train_y_path,
 
     print(f'TRAINING: {SUP}  - Epochs: {EPOCHS} - LR: {LR} - Base Channels: {BASE_CHANNELS}')
 
-    y = load_data(data_path=Y_PATH)
+    y = load_data(data_path=Y_PATH, to_norm=False)
     print(f'Y: Shape: {y.shape}  - min: {y.min():.4f}    - max: {y.max():.4f}  - Path: {Y_PATH}')
 
     if X_PATH is not None:
-        x = load_data(data_path=X_PATH)
+        x = load_data(data_path=X_PATH, to_norm=False)
         print(f'X: Shape: {x.shape}  - min: {x.min():.4f}    - max: {x.max():.4f}   - Path: {X_PATH}')
     else:
         x = None
