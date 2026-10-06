@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from pathlib import Path
 from model import SSLBD
-from visualization import plot_comparison, load_data, extract_patches, reconstruct_patches
+from visualization import plot_comparison, load_data, extract_patches, reconstruct_patches, crop_data
 from wavelet_estimation import estimate_zero_phase_wavelet
 from losses import relative_sparsity_mu
 from scores import export_metrics_csv
@@ -97,7 +97,20 @@ def test_ssl_bd(
 
     snr2 = export_metrics_csv(input=seismic_data, output=prediction, results_dir=test_dir, target=ground_truth)
 
-    plot_comparison(input=seismic_data, output=prediction, results_dir=test_dir, name='reflectivity', snr2=snr2, target=ground_truth) 
+    if len(positions) > 1:
+        plot_comparison(input=seismic_data, 
+                        output=prediction, 
+                        results_dir=test_dir, 
+                        name='reflectivity', 
+                        snr2=snr2, 
+                        target=ground_truth) 
+    else:
+        plot_comparison(input=crop_data(seismic_data, positions), 
+                        output=crop_data(prediction, positions), 
+                        results_dir=test_dir, 
+                        name='reflectivity', 
+                        snr2=snr2, 
+                        target=crop_data(ground_truth, positions)) 
 
     return prediction
 

@@ -65,6 +65,12 @@ def reconstruct_patches(predictions, positions, original_shape):
     return output
 
 
+def crop_data(data, positions):
+    (y, x, y_end, x_end) = positions[0]
+
+    return data[..., y:y_end, x:x_end]
+
+
 def zScore(data):
     mean = np.mean(data)
     std = np.std(data)
@@ -79,8 +85,8 @@ def load_data(data_path: str, file_name: str = None, to_norm: bool = True):
         if '.npy' in data_path:
             data = np.load(data_path).astype("float32")
         else:
-            with segyio.open(data_path, ignore_geometry=True) as file:
-                data = segyio.collect(file.trace)
+            with segyio.open(data_path, ignore_geometry=False) as file:
+                data = file.iline[1]
         data = data if data.ndim == 2 else data[0]
         data = data.reshape(data.shape[-2], data.shape[-1])
         if to_norm:
