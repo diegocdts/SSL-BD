@@ -30,6 +30,8 @@ for line in arr:
     result_dir = call_train(is_supervised, epochs, lr, base_channels, dir_name, train_y_path, train_x_path)
     loss_paths.append(f'{result_dir}/loss_history.npy')
 
+    call_test(base_channels, result_dir, train_y_path, train_x_path)
+
     if train_y_path != test_y_path:
         call_test(base_channels, result_dir, test_y_path, test_x_path)
 
