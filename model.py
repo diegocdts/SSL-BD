@@ -155,11 +155,11 @@ class SSLBD(nn.Module):
         # 3. reconstrução do dado sísmico: convolução(w_pred, R_tilde)
         y_pred = reconstruct_seismic_data(w_pred, r_tilde)
 
-        # 4. função de perda auto-supervisionada (Eq. 8)
-        loss = ssl_bd_loss(y_obs, y_pred)
-
         if self.is_supervised and r_real is not None:
             loss = ssl_bd_loss(r_real, r_pred)
+        else:
+            # 4. função de perda auto-supervisionada (Eq. 8)
+            loss = ssl_bd_loss(y_obs, y_pred)
 
         return {
             "loss": loss,

@@ -21,28 +21,29 @@ def extract_patches(image, y_start=None, x_start=None, patch_size=(352, 1400), t
         patch = image[..., y_start:y_end, x_start:x_end]
         if to_norm:
             patch = zScore(patch)
-        return patch
+        patches.append(patch)
+        positions.append((y_start, x_start, y_end, x_end))
+    else:
+        if to_norm:
+            image = zScore(image)
+        for y in range(0, h, ph):
+            for x in range(0, w, pw):
 
-    if to_norm:
-        image = zScore(image)
-    for y in range(0, h, ph):
-        for x in range(0, w, pw):
+                y_end = min(y + ph, h)
+                x_end = min(x + pw, w)
 
-            y_end = min(y + ph, h)
-            x_end = min(x + pw, w)
+                patch = image[..., y:y_end, x:x_end]
 
-            patch = image[..., y:y_end, x:x_end]
+                # padding para o tamanho fixo
+                padded = np.zeros(
+                    (*image.shape[:-2], ph, pw),
+                    dtype=image.dtype
+                )
 
-            # padding para o tamanho fixo
-            padded = np.zeros(
-                (*image.shape[:-2], ph, pw),
-                dtype=image.dtype
-            )
+                padded[..., :y_end-y, :x_end-x] = patch
 
-            padded[..., :y_end-y, :x_end-x] = patch
-
-            patches.append(padded)
-            positions.append((y, x, y_end, x_end))
+                patches.append(padded)
+                positions.append((y, x, y_end, x_end))
 
     return np.stack(patches), positions
 

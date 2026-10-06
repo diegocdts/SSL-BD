@@ -49,15 +49,18 @@ def test_ssl_bd(
     w0_np = estimate_zero_phase_wavelet(seismic_data)
     w0 = torch.tensor(w0_np, dtype=torch.float32, device=device)
 
+    y_start, x_start = 200, 3500
     # dado sísmico como tensor (batch=1, canal=1, n_traces, n_samples)
-    y_patches, positions = extract_patches(seismic_data)
-    y_obs = torch.tensor(y_patches, dtype=torch.float32, device=device)
+    #y_patches, positions = extract_patches(seismic_data)
+    y_patch, positions = extract_patches(seismic_data, y_start, x_start, to_norm=True)
+    y_obs = torch.tensor(y_patch, dtype=torch.float32, device=device)
     y_obs = y_obs.unsqueeze(1).unsqueeze(1)
 
     # ground truth como tensor (batch=1, canal=1, n_traces, n_samples)
     if ground_truth is not None:
-        x_patches, _ = extract_patches(ground_truth)
-        r_real = torch.tensor(x_patches, dtype=torch.float32, device=device)
+        #x_patches, _ = extract_patches(ground_truth)
+        x_patch, _ = extract_patches(ground_truth, y_start, x_start, to_norm=True)
+        r_real = torch.tensor(x_patch, dtype=torch.float32, device=device)
         r_real = r_real.unsqueeze(1).unsqueeze(1)
     else:
         r_real = None
@@ -116,7 +119,6 @@ def call_test(base_channels, result_dir, test_y_path, test_x_path = None):
         x = load_data(data_path=X_PATH)
         print(f'X: Shape: {x.shape}  - min: {x.min():.4f}    - max: {x.max():.4f}   - Path: {X_PATH}')
     else:
-        is_supervised = False
         x = None
 
     test_ssl_bd(y, x, base_channels=base_channels, results_dir=RESULTS_DIR, test_dir=TEST_DIR)    

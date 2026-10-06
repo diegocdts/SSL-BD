@@ -96,15 +96,15 @@ def train_ssl_bd(
 
     y_start, x_start = 200, 3500
     # dado sísmico obsevado como tensor (batch=1, canal=1, n_traces, n_samples)
-    y_patch = extract_patches(seismic_data, y_start, x_start, to_norm=True)
+    y_patch, _ = extract_patches(seismic_data, y_start, x_start, to_norm=True)
     y_obs = torch.tensor(y_patch, dtype=torch.float32, device=device)
-    y_obs = y_obs.unsqueeze(0).unsqueeze(0).unsqueeze(0)
+    y_obs = y_obs.unsqueeze(1).unsqueeze(1)
 
     # ground truth como tensor (batch=1, canal=1, n_traces, n_samples)
     if ground_truth is not None:
-        x_patch = extract_patches(ground_truth, y_start, x_start, to_norm=True)
+        x_patch, _ = extract_patches(ground_truth, y_start, x_start, to_norm=True)
         r_real = torch.tensor(x_patch, dtype=torch.float32, device=device)
-        r_real = r_real.unsqueeze(0).unsqueeze(0).unsqueeze(0)
+        r_real = r_real.unsqueeze(1).unsqueeze(1)
     else:
         is_supervised = False
         r_real = None
