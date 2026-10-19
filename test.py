@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from pathlib import Path
 from model import SSLBD
-from visualization import plot_comparison, load_data, extract_patches, reconstruct_patches, crop_data
+from visualization import plot_comparison2, load_data, extract_patches, reconstruct_patches, crop_data
 from wavelet_estimation import estimate_zero_phase_wavelet
 from losses import relative_sparsity_mu
 from scores import export_metrics_csv
@@ -49,19 +49,19 @@ def test_ssl_bd(
     w0_np = estimate_zero_phase_wavelet(seismic_data)
     w0 = torch.tensor(w0_np, dtype=torch.float32, device=device)
 
-    y_start, x_start = 200, 3500
+    # y_start, x_start = 200, 3500
     # dado sísmico como tensor (batch=1, canal=1, n_traces, n_samples)
-    #y_patches, positions = extract_patches(seismic_data)
-    y_patch, positions = extract_patches(seismic_data, y_start, x_start, to_norm=True)
-    y_obs = torch.tensor(y_patch, dtype=torch.float32, device=device)
-    y_obs = y_obs.unsqueeze(1).unsqueeze(1)
+    # y_patches, positions = extract_patches(seismic_data)
+    # y_patch, positions = extract_patches(seismic_data, y_start, x_start, to_norm=True)
+    y_obs = torch.tensor(seismic_data, dtype=torch.float32, device=device)
+    y_obs = y_obs.unsqueeze(0).unsqueeze(0)
 
     # ground truth como tensor (batch=1, canal=1, n_traces, n_samples)
     if ground_truth is not None:
-        #x_patches, _ = extract_patches(ground_truth)
-        x_patch, _ = extract_patches(ground_truth, y_start, x_start, to_norm=True)
-        r_real = torch.tensor(x_patch, dtype=torch.float32, device=device)
-        r_real = r_real.unsqueeze(1).unsqueeze(1)
+        # x_patches, _ = extract_patches(ground_truth)
+        # x_patch, _ = extract_patches(ground_truth, y_start, x_start, to_norm=True)
+        r_real = torch.tensor(ground_truth, dtype=torch.float32, device=device)
+        r_real = r_real.unsqueeze(0).unsqueeze(0)
     else:
         r_real = None
 
@@ -85,33 +85,20 @@ def test_ssl_bd(
     mu = relative_sparsity_mu(1)
     output_patchs = []
     with torch.no_grad():
-        for y in y_obs:
-            outputs = model(y, mu=mu)
-            reflectivity = outputs["reflectivity"].detach().cpu().numpy()
-            output_patchs.append(reflectivity.squeeze())
+        outputs = model(y_obs, mu=mu)
+        prediction = outputs["reflectivity"].detach().cpu().numpy().squeeze()
 
-    output_patchs = np.array(output_patchs)
-    prediction = reconstruct_patches(output_patchs, positions, seismic_data.shape)
-
-    np.save(f'{test_dir}/reflectivity.npy', reflectivity)
+    np.save(f'{test_dir}/reflectivity.npy', prediction)
 
     snr2 = export_metrics_csv(input=seismic_data, output=prediction, results_dir=test_dir, target=ground_truth)
 
-    if len(positions) > 1:
-        plot_comparison(input=seismic_data, 
+    plot_comparison2(input=seismic_data, 
                         output=prediction, 
                         results_dir=test_dir, 
                         name='reflectivity', 
                         snr2=snr2, 
                         target=ground_truth) 
-    else:
-        plot_comparison(input=crop_data(seismic_data, positions), 
-                        output=crop_data(prediction, positions), 
-                        results_dir=test_dir, 
-                        name='reflectivity', 
-                        snr2=snr2, 
-                        target=crop_data(ground_truth, positions)) 
-
+    
     return prediction
 
 
@@ -125,11 +112,11 @@ def call_test(base_channels, result_dir, test_y_path, test_x_path = None):
 
     print(f'TESTING')
 
-    y = load_data(data_path=Y_PATH)
+    y = load_data(data_path=Y_PATH, to_norm=True)
     print(f'Y: Shape: {y.shape}  - min: {y.min():.4f}    - max: {y.max():.4f}  - Path: {Y_PATH}')
 
     if X_PATH is not None:
-        x = load_data(data_path=X_PATH)
+        x = load_data(data_path=X_PATH, to_norm=True)
         print(f'X: Shape: {x.shape}  - min: {x.min():.4f}    - max: {x.max():.4f}   - Path: {X_PATH}')
     else:
         x = None

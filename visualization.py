@@ -77,7 +77,7 @@ def zScore(data):
     if std == 0 or not np.isfinite(std):
         std = 1e-8
     n_std = 3
-    return (data - mean) / (std * n_std)
+    return (data) / (std * n_std)
 
 def load_data(data_path: str, file_name: str = None, to_norm: bool = True):
     path = Path(data_path)
@@ -87,6 +87,7 @@ def load_data(data_path: str, file_name: str = None, to_norm: bool = True):
         else:
             with segyio.open(data_path, ignore_geometry=False) as file:
                 data = file.iline[1]
+        data = data.T
         data = data if data.ndim == 2 else data[0]
         data = data.reshape(data.shape[-2], data.shape[-1])
         if to_norm:
@@ -328,4 +329,51 @@ def plot_wavelets(directory="wavelets", cmap="Blues", title: str = "Wavelet"):
     plt.savefig(f'{directory}/wavelet_history.png', bbox_inches='tight', transparent=False)
     plt.savefig(f'{directory}/wavelet_history.pdf', bbox_inches='tight', transparent=False)
 
+    plt.close()
+
+
+def plot_comparison2(input, output, results_dir, name, snr2=None, target=None):
+    vmin, vmax = vmin_vmax_percentile(target)
+
+    fig = plt.figure(figsize=(24,5))
+    fig.subplots_adjust(bottom=0.05, left=0.05, top = 0.975, right=0.975)
+    fig.tight_layout()
+
+    # Plots
+    ax = fig.add_subplot(1, 4, (1))
+    ax.imshow(input, cmap="seismic", interpolation='hanning', interpolation_stage='data', vmin=vmin, vmax=vmax, aspect='auto')
+
+    ax.set_ylabel('Time [ms]',fontsize=15)
+    ax.set_xlabel('Trace number',fontsize=15)
+    ax.set_title('(a)', y=-0.2,fontsize=20)
+    
+
+    ax = fig.add_subplot(1, 4, (2))
+    im = ax.imshow(target, cmap="seismic", interpolation='hanning', interpolation_stage='data', vmin=vmin, vmax=vmax, aspect='auto')
+    ax.set_xlabel('Trace number',fontsize=15)
+    ax.set_title('(b)', y=-0.2,fontsize=20)
+
+    ax = fig.add_subplot(1, 4, (3))
+    ax.imshow(output, cmap="seismic", interpolation='hanning', interpolation_stage='data', vmin=vmin, vmax=vmax, aspect='auto')
+    if snr2:
+        ax.text(0.99, 0.99, 'SNR2: {:.2f}'.format(snr2), horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, fontsize=15)
+
+    ax.set_xlabel('Trace number',fontsize=15)
+    ax.set_title('(c)', y=-0.2,fontsize=20)
+    
+    ax_diff = fig.add_subplot(1, 4, (4))
+    
+    diff = output - target
+
+    ax_diff.imshow(diff, cmap="seismic", interpolation='hanning', interpolation_stage='data', vmin=vmin, vmax=vmax, aspect='auto')
+
+    ax_diff.set_xlabel('Trace number',fontsize=15)
+    ax_diff.set_title('(d)', y=-0.2,fontsize=20)
+    
+    
+
+    cbar = fig.colorbar(im, ax=fig.axes, pad=0.01, aspect=80)
+    cbar.ax.tick_params(labelsize=20)
+    plt.savefig(f'{results_dir}/{name}.png', bbox_inches='tight', transparent=False)
+    plt.savefig(f'{results_dir}/{name}.pdf', bbox_inches='tight', transparent=False)
     plt.close()
