@@ -47,7 +47,7 @@ def export_metrics_csv(input, output, results_dir, target=None):
         f'{results_dir}/metrics.csv',
         metrics.reshape(1, -1),
         delimiter=",",
-        fmt="%.2f",
+        fmt="%.5f",
         header=",".join(headers),
         comments=""
     )
