@@ -95,7 +95,7 @@ class ReflectivityInversionNet(nn.Module):
 
         # --- caminho de canais crescentes ("encoder", sem redução espacial) ---
         # primeira convolução da rede: kernel grande 29x29 (Seção 2.3)
-        self.enc1 = ResidualBlock(1, c1, kernel_size_first=29)
+        self.enc1 = ResidualBlock(3, c1, kernel_size_first=29)
         self.enc2 = ResidualBlock(c1, c2, kernel_size_first=3)
         self.enc3 = ResidualBlock(c2, c3, kernel_size_first=3)
         self.enc4 = ResidualBlock(c3, c4, kernel_size_first=3)
@@ -158,7 +158,7 @@ class WaveletPhaseInversionNet(nn.Module):
     def __init__(self, n_channels_conv: int = 64, hidden_fc: int = 256):
         super().__init__()
 
-        self.conv1 = nn.Conv1d(1, 16, kernel_size=29, stride=14, padding=14)
+        self.conv1 = nn.Conv1d(3, 16, kernel_size=29, stride=14, padding=14)
         self.act1 = nn.LeakyReLU(inplace=True)
 
         self.conv2 = nn.Conv1d(16, 32, kernel_size=4, stride=2, padding=1)
@@ -188,8 +188,8 @@ class WaveletPhaseInversionNet(nn.Module):
         Retorna: escalar theta_pred (fase prevista do wavelet, em
         radianos), obtido pela média das previsões de todos os traços.
         """
-        batch, n_traces, n_samples = x.shape
-        x = x.reshape(batch * n_traces, 1, n_samples)
+        batch, channels, n_traces, n_samples = x.shape
+        x = x.reshape(batch * n_traces, channels, n_samples)
 
         out = self.act1(self.conv1(x))
         out = self.act2(self.bn2(self.conv2(out)))

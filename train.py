@@ -31,6 +31,18 @@ from visualization import plot_comparison, plot_wavelets, load_data, extract_pat
 from scores import export_metrics_csv
 
 
+def embedding(x):
+    x = x.float()
+    B, C, H, W = x.shape
+    device = x.device
+
+    xs = torch.linspace(0, 1, W, device=device, dtype=x.dtype).view(1, 1, 1, W).expand(B, 1, H, W)
+    ys = torch.linspace(0, 1, H, device=device, dtype=x.dtype).view(1, 1, H, 1).expand(B, 1, H, W)
+
+    x = torch.cat([x, xs, ys], dim=1)  # (B,3,H,W)
+    return x
+
+
 def train_ssl_bd(
     seismic_data: np.ndarray,
     ground_truth: np.ndarray = None,
@@ -99,6 +111,7 @@ def train_ssl_bd(
     # y_patch, _ = extract_patches(seismic_data, y_start, x_start, to_norm=True)
     y_obs = torch.tensor(seismic_data, dtype=torch.float32, device=device)
     y_obs = y_obs.unsqueeze(0).unsqueeze(0)
+    y_obs = embedding(y_obs)
 
     # ground truth como tensor (batch=1, canal=1, n_traces, n_samples)
     if ground_truth is not None:
