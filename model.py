@@ -15,7 +15,7 @@ Também implementa a rotação de fase do wavelet inicial de fase zero
 import torch
 import torch.nn as nn
 
-from networks import ReflectivityInversionNet, WaveletPhaseInversionNet
+from networks_more_layers_embedding import ReflectivityInversionNet, WaveletPhaseInversionNet
 from losses import apply_relative_sparsity, reconstruct_seismic_data, ssl_bd_loss
 
 
