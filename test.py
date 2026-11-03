@@ -2,23 +2,13 @@ import os
 import numpy as np
 import torch
 from pathlib import Path
-from model import SSLBD
-from visualization import plot_comparison2, load_data, extract_patches, reconstruct_patches, crop_data
+
 from wavelet_estimation import estimate_zero_phase_wavelet
 from losses import relative_sparsity_mu
+from model import SSLBD
+from visualization import plot_comparison2, load_data
 from scores import export_metrics_csv
-
-
-def embedding(x):
-    x = x.float()
-    B, C, H, W = x.shape
-    device = x.device
-
-    xs = torch.linspace(0, 1, W, device=device, dtype=x.dtype).view(1, 1, 1, W).expand(B, 1, H, W)
-    ys = torch.linspace(0, 1, H, device=device, dtype=x.dtype).view(1, 1, H, 1).expand(B, 1, H, W)
-
-    x = torch.cat([x, xs, ys], dim=1)  # (B,3,H,W)
-    return x
+from channel import embedding
 
 
 def test_ssl_bd(
