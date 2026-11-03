@@ -24,16 +24,18 @@ for line in arr:
     test_y_path = line[5]
     train_x_path = line[6]
     test_x_path = line[7]
+    hessian_train_path = line[8]
+    hessian_test_path = line[9]
 
     dir_name = str(Path(train_y_path).parent.name)
 
-    result_dir = call_train(is_supervised, epochs, lr, base_channels, dir_name, train_y_path, train_x_path)
+    result_dir = call_train(is_supervised, epochs, lr, base_channels, dir_name, train_y_path, train_x_path, hessian_train_path)
     loss_paths.append(f'{result_dir}/loss_history.npy')
 
-    call_test(base_channels, result_dir, train_y_path, train_x_path)
+    call_test(base_channels, result_dir, train_y_path, train_x_path, hessian_train_path)
 
     if train_y_path != test_y_path:
-        call_test(base_channels, result_dir, test_y_path, test_x_path)
+        call_test(base_channels, result_dir, test_y_path, test_x_path, hessian_test_path)
 
 call_losses(loss_paths)
 

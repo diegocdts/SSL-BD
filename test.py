@@ -8,12 +8,13 @@ from losses import relative_sparsity_mu
 from model import SSLBD
 from visualization import plot_comparison2, load_data
 from scores import export_metrics_csv
-from channel import embedding
+from channel import hessian
 
 
 def test_ssl_bd(
     seismic_data: np.ndarray,
     ground_truth: np.ndarray = None,
+    hessian_data: np.ndarray = None,
     base_channels: int = 16,
     device: str = None,
     results_dir: str = None,
@@ -28,6 +29,8 @@ def test_ssl_bd(
         Dado sísmico observado (Y_obs).
     ground_truth : np.ndarray, shape (n_traces, n_samples)
         Dado sísmico verdadeiro (R_real).
+    hessian_data : np.ndarray, shape (n_traces, n_samples)
+        Canal adicional para o dado observado.
     base_channels : int
         Número de canais da primeira camada da rede de refletividade.
     device : str, opcional
@@ -57,7 +60,9 @@ def test_ssl_bd(
     # y_patch, positions = extract_patches(seismic_data, y_start, x_start, to_norm=True)
     y_obs = torch.tensor(seismic_data, dtype=torch.float32, device=device)
     y_obs = y_obs.unsqueeze(0).unsqueeze(0)
-    y_obs = embedding(y_obs)
+    hessian_data = torch.tensor(hessian_data, dtype=torch.float32, device=device)
+    hessian_data = hessian_data.unsqueeze(0).unsqueeze(0)
+    y_obs = hessian(y_obs, hessian_data)
 
     # ground truth como tensor (batch=1, canal=1, n_traces, n_samples)
     if ground_truth is not None:
@@ -105,9 +110,10 @@ def test_ssl_bd(
     return prediction
 
 
-def call_test(base_channels, result_dir, test_y_path, test_x_path = None):
+def call_test(base_channels, result_dir, test_y_path, test_x_path = None, hessian_test_path = None):
     Y_PATH = test_y_path
     X_PATH = test_x_path
+    H_PATH = hessian_test_path
 
     RESULTS_DIR = result_dir
     TEST_DIR = f'{RESULTS_DIR}/test_{Path(Y_PATH).stem}'
@@ -123,7 +129,12 @@ def call_test(base_channels, result_dir, test_y_path, test_x_path = None):
         print(f'X: Shape: {x.shape}  - min: {x.min():.4f}    - max: {x.max():.4f}   - Path: {X_PATH}')
     else:
         x = None
+ 
+    if H_PATH is not None:
+        h = load_data(data_path=H_PATH, to_norm=True)
+    else:
+        h = None
 
-    test_ssl_bd(y, x, base_channels=base_channels, results_dir=RESULTS_DIR, test_dir=TEST_DIR)    
+    test_ssl_bd(y, x, h, base_channels=base_channels, results_dir=RESULTS_DIR, test_dir=TEST_DIR)    
 
     print('Fim do teste')

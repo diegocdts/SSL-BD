@@ -27,12 +27,13 @@ from wavelet_estimation import estimate_zero_phase_wavelet
 from losses import relative_sparsity_mu
 from model import SSLBD
 from visualization import plot_wavelets, load_data
-from channel import embedding
+from channel import hessian
 
 
 def train_ssl_bd(
     seismic_data: np.ndarray,
     ground_truth: np.ndarray = None,
+    hessian_data: np.ndarray = None,
     is_supervised: bool = False,
     n_epochs: int = 10000,
     learning_rate: float = 1e-5,
@@ -51,6 +52,8 @@ def train_ssl_bd(
         Dado sísmico observado (Y_obs).
     ground_truth : np.ndarray, shape (n_traces, n_samples)
         Dado sísmico verdadeiro (R_real).
+    hessian_data : np.ndarray, shape (n_traces, n_samples)
+        Canal adicional para o dado observado.
     is_supervised:
         True se o modelo deve ser treinado de forma supervisionada. Falso caso contrário.
         Se ground_truth for None, is_supervised = False
@@ -98,7 +101,9 @@ def train_ssl_bd(
     # y_patch, _ = extract_patches(seismic_data, y_start, x_start, to_norm=True)
     y_obs = torch.tensor(seismic_data, dtype=torch.float32, device=device)
     y_obs = y_obs.unsqueeze(0).unsqueeze(0)
-    y_obs = embedding(y_obs)
+    hessian_data = torch.tensor(hessian_data, dtype=torch.float32, device=device)
+    hessian_data = hessian_data.unsqueeze(0).unsqueeze(0)
+    y_obs = hessian(y_obs, hessian_data)
 
     # ground truth como tensor (batch=1, canal=1, n_traces, n_samples)
     if ground_truth is not None:
@@ -157,10 +162,11 @@ def train_ssl_bd(
     plot_wavelets(wavelets_dir, title=wavelet_title)
 
 
-def call_train(is_supervised, epochs, lr, base_channels, dir_name, train_y_path, train_x_path = None):
+def call_train(is_supervised, epochs, lr, base_channels, dir_name, train_y_path, train_x_path = None, hessian_train_path = None):
     SUP = 'SUP' if is_supervised else 'SELF-SUP'
     Y_PATH = train_y_path
     X_PATH = train_x_path
+    H_PATH = hessian_train_path
     EPOCHS = epochs
     LR = lr
     BASE_CHANNELS = base_channels
@@ -180,7 +186,12 @@ def call_train(is_supervised, epochs, lr, base_channels, dir_name, train_y_path,
     else:
         x = None
 
-    train_ssl_bd(y, x, is_supervised, n_epochs=EPOCHS, learning_rate=LR, base_channels=BASE_CHANNELS, results_dir=RESULTS_DIR, wavelet_title=WAVELET_TITLE)
+    if H_PATH is not None:
+        h = load_data(data_path=H_PATH, to_norm=True)
+    else:
+        h = None
+
+    train_ssl_bd(y, x, h, is_supervised, n_epochs=EPOCHS, learning_rate=LR, base_channels=BASE_CHANNELS, results_dir=RESULTS_DIR, wavelet_title=WAVELET_TITLE)
 
     print('Fim do treino')
     
