@@ -49,19 +49,19 @@ def test_ssl_bd(
     w0_np = estimate_zero_phase_wavelet(seismic_data)
     w0 = torch.tensor(w0_np, dtype=torch.float32, device=device)
 
-    # y_start, x_start = 200, 3500
+    y_start, x_start = 200, 3500
     # dado sísmico como tensor (batch=1, canal=1, n_traces, n_samples)
     # y_patches, positions = extract_patches(seismic_data)
-    # y_patch, positions = extract_patches(seismic_data, y_start, x_start, to_norm=True)
-    y_obs = torch.tensor(seismic_data, dtype=torch.float32, device=device)
-    y_obs = y_obs.unsqueeze(0).unsqueeze(0)
+    y_patch, positions = extract_patches(seismic_data, y_start, x_start, to_norm=True)
+    y_obs = torch.tensor(y_patch, dtype=torch.float32, device=device)
+    y_obs = y_obs.unsqueeze(0)
 
     # ground truth como tensor (batch=1, canal=1, n_traces, n_samples)
     if ground_truth is not None:
         # x_patches, _ = extract_patches(ground_truth)
-        # x_patch, _ = extract_patches(ground_truth, y_start, x_start, to_norm=True)
-        r_real = torch.tensor(ground_truth, dtype=torch.float32, device=device)
-        r_real = r_real.unsqueeze(0).unsqueeze(0)
+        x_patch, _ = extract_patches(ground_truth, y_start, x_start, to_norm=True)
+        r_real = torch.tensor(x_patch, dtype=torch.float32, device=device)
+        r_real = r_real.unsqueeze(0)
     else:
         r_real = None
 
@@ -90,6 +90,8 @@ def test_ssl_bd(
 
     np.save(f'{test_dir}/reflectivity.npy', prediction)
 
+    seismic_data = y_patch.squeeze()
+    ground_truth = x_patch.squeeze()
     snr2 = export_metrics_csv(input=seismic_data, output=prediction, results_dir=test_dir, target=ground_truth)
 
     plot_comparison2(input=seismic_data, 
@@ -102,12 +104,12 @@ def test_ssl_bd(
     return prediction
 
 
-def call_test(base_channels, result_dir, test_y_path, test_x_path = None):
+def call_test(base_channels, result_dir, test_y_path, test_x_path = None, reversed_polarity = False):
     Y_PATH = test_y_path
     X_PATH = test_x_path
 
     RESULTS_DIR = result_dir
-    TEST_DIR = f'{RESULTS_DIR}/test_{Path(Y_PATH).stem}'
+    TEST_DIR = f'{RESULTS_DIR}/test_{Path(Y_PATH).stem}' if reversed_polarity is False else f'{RESULTS_DIR}/test_{Path(Y_PATH).stem}_RP'
     os.makedirs(TEST_DIR, exist_ok=True)
 
     print(f'TESTING')
@@ -120,6 +122,10 @@ def call_test(base_channels, result_dir, test_y_path, test_x_path = None):
         print(f'X: Shape: {x.shape}  - min: {x.min():.4f}    - max: {x.max():.4f}   - Path: {X_PATH}')
     else:
         x = None
+
+    if reversed_polarity:
+        y = -y
+        x = -x
 
     test_ssl_bd(y, x, base_channels=base_channels, results_dir=RESULTS_DIR, test_dir=TEST_DIR)    
 

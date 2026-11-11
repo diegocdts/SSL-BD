@@ -34,6 +34,7 @@ for line in arr:
 
     if train_y_path != test_y_path:
         call_test(base_channels, result_dir, test_y_path, test_x_path)
+        call_test(base_channels, result_dir, test_y_path, test_x_path, reversed_polarity=True)
 
 call_losses(loss_paths)
 

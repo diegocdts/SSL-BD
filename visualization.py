@@ -87,7 +87,7 @@ def load_data(data_path: str, file_name: str = None, to_norm: bool = True):
         else:
             with segyio.open(data_path, ignore_geometry=False) as file:
                 data = file.iline[1]
-        data = data.T
+        #data = data.T
         data = data if data.ndim == 2 else data[0]
         data = data.reshape(data.shape[-2], data.shape[-1])
         if to_norm:
