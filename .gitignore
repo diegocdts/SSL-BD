@@ -2,4 +2,4 @@ __pycache__
 slurms
 results/*
 model
-results_v*/*
+SEAM*/
